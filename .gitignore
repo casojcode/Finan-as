@@ -1,0 +1,13 @@
+# Nunca enviar dados pessoais para o repositório
+*.json
+!comercial/manifest.webmanifest
+*.xlsx
+*.xls
+*.csv
+backup*
+*-backup-*
+
+# Arquivos do sistema
+.DS_Store
+Thumbs.db
+desktop.ini

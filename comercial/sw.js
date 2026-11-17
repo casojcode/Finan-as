@@ -1,7 +1,7 @@
-/* fin$nce: guarda o app no aparelho para abrir sem internet.
+/* Fine: guarda o app no aparelho para abrir sem internet.
    A página principal busca a versão nova quando há internet; sem internet, usa a guardada. */
-const CACHE = "finance-v1";
-const APP = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png"];
+const CACHE = "fine-v2";
+const APP = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "icon-maskable-512.png", "apple-touch-icon.png", "favicon-64.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(APP)).then(() => self.skipWaiting()));

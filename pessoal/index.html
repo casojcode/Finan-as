@@ -49,6 +49,16 @@ main{flex:1;overflow-y:auto;padding:4px 16px 24px;display:flex;flex-direction:co
 nav{display:flex;border-top:1px solid var(--line);background:var(--surface)}
 nav button{flex:1;border:0;background:none;color:var(--muted);font:500 12.5px var(--body);padding:12px 2px 14px;border-top:3px solid transparent;cursor:pointer}
 nav button[aria-current="page"]{color:var(--accent);border-top-color:var(--accent);font-weight:600}
+nav button.plus{flex:0 0 76px;border-top-color:transparent;padding:0;display:flex;align-items:center;justify-content:center}
+nav button.plus span{width:52px;height:52px;margin-top:-22px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font:400 32px/1 var(--body);display:flex;align-items:center;justify-content:center;box-shadow:0 3px 10px rgba(11,40,40,.25);border:3px solid var(--bg)}
+nav button.plus[aria-current="page"] span{outline:2px solid var(--accent);outline-offset:2px}
+nav{overflow:visible}
+main>*{flex-shrink:0}
+.subtabs{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.subtabs button{flex:1;white-space:nowrap;border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:8px 10px;font:500 13.5px var(--body);color:var(--muted);cursor:pointer}
+.subtabs button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.vrow{display:flex;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line)}.vrow:first-of-type{border-top:0}
+.vrow .dt{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;width:42px}
 button,input,select{font-family:inherit;font-size:15px;color:inherit}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px;display:flex;flex-direction:column;gap:10px}
@@ -102,6 +112,10 @@ input[type=text],input[type=date],input[type=month],input[type=number],select{wi
 .banner{border-radius:10px;padding:10px 12px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
 .empty{color:var(--muted);text-align:center;padding:18px 8px}
 textarea{width:100%;min-height:96px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical}
+input.calc::placeholder{color:var(--accent);font-weight:600;opacity:1}
+.tagc{display:none;font-size:11px;font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;padding:1px 7px;margin-left:6px}
+.tagc.on{display:inline-block}
+.taxa-row{display:flex;gap:6px;align-items:stretch}.taxa-row input{flex:1;min-width:0}.taxa-row .seg{flex:none}.taxa-row .seg button{padding:6px 9px;font-size:13px}
 .chip.more{border-style:dashed;color:var(--muted)}
 .gh{display:flex;align-items:center;gap:6px;background:none;border:0;padding:4px 0;cursor:pointer;color:var(--ink);font:600 15px var(--body);text-align:left}
 .gh .ed{color:var(--accent);font-weight:500;font-size:13px}
@@ -111,6 +125,7 @@ textarea{width:100%;min-height:96px;padding:8px 10px;border:1px solid var(--line
 #sheet{position:fixed;inset:0;background:rgba(8,20,22,.5);display:none;align-items:flex-end;justify-content:center;z-index:20}
 #sheet.on{display:flex}
 #sheet .box{background:var(--bg);width:100%;max-width:560px;max-height:92%;overflow-y:auto;border-radius:16px 16px 0 0;padding:16px;display:flex;flex-direction:column;gap:12px}
+#sheet .box>*{flex-shrink:0}
 #sheet h3{margin:0;font-family:var(--display);font-size:19px}
 .chk{display:flex;gap:8px;align-items:center;font-size:14px}
 .chk input{width:20px;height:20px;accent-color:var(--accent)}
@@ -182,6 +197,63 @@ function impliedRate(pv,pmt,n){
   return (lo+hi)/2;
 }
 const pmtOf=(pv,i,n)=>i>0?pv*i/(1-Math.pow(1+i,-n)):pv/n;
+/* ---------- dívidas: juros efetivos, conversões e cálculo do campo vazio ---------- */
+const a2m=a=>Math.pow(1+a,1/12)-1, m2a=m=>Math.pow(1+m,12)-1;
+const fmtPct=v=>(v*100).toLocaleString("pt-BR",{minimumFractionDigits:3,maximumFractionDigits:3});
+const pctIn=v=>(v*100).toFixed(3).replace(".",",");
+const unPadrao=tipo=>tipo==="financiamento"?"a":"m";
+function setUn(d,un){if(d.un===un)return;if(String(d.taxa||"").trim()!==""){const r=parseVal(d.taxa)/100;const m=d.un==="a"?a2m(r):r;d.taxa=pctIn(un==="a"?m2a(m):m)}d.un=un}
+function calcDiv(d){ // preenchidos dois entre parcela, nº de parcelas e juros, calcula o terceiro (Price ou SAC)
+  const contrato=d.modo==="contrato",sac=d.sis==="sac",un=d.un||"m";
+  const S0=parseVal(contrato?d.valor:d.saldo);const tem=k=>String(d[k]==null?"":d[k]).trim()!=="";
+  let n=parseInt(d.n)||0,P=parseVal(d.parcela);const r=parseVal(d.taxa)/100;let i=tem("taxa")?(un==="a"?a2m(r):r):null;
+  const has={P:tem("parcela")&&P>0,n:tem("n")&&n>0,i:tem("taxa")&&r>=0};
+  const res={S0,calc:null,erro:"",aviso:""};
+  if(!(S0>0)){res.erro=contrato?"Informe o valor do contrato.":"Informe o saldo devedor.";return res}
+  const cnt=has.P+has.n+has.i;
+  if(cnt<2){res.erro="Preencha dois entre "+(sac?"1ª parcela":"parcela")+", nº de parcelas e juros: o terceiro é calculado.";return res}
+  if(cnt===2){
+    if(!has.P){P=sac?S0/n+S0*i:pmtOf(S0,i,n);res.calc="parcela"}
+    else if(!has.n){
+      if(P<=S0*i&&!(i===0)){res.erro="Com esses juros, a "+(sac?"1ª parcela":"parcela")+" não cobre nem os juros do mês.";return res}
+      n=sac?Math.ceil(S0/(P-S0*i)-1e-9):i===0?Math.ceil(S0/P-1e-9):Math.ceil(-Math.log(1-S0*i/P)/Math.log(1+i)-1e-9);res.calc="n"}
+    else{
+      if(sac){i=(P-S0/n)/S0;if(i<-1e-9){res.erro="A 1ª parcela é menor que a amortização (valor ÷ nº de parcelas). Confira os valores.";return res}i=Math.max(i,0)}
+      else{if(P*n<S0-0.01){res.erro="Parcela × nº de parcelas é menor que o valor. Confira os valores.";return res}i=impliedRate(S0,P,n)}
+      res.calc="taxa"}
+  }else{const Pc=sac?S0/n+S0*i:pmtOf(S0,i,n);
+    if(Math.abs(Pc-P)>Math.max(1,P*0.01))res.aviso="Os três valores não batem: com esses juros e esse prazo, a "+(sac?"1ª parcela":"parcela")+" seria "+brl(Pc)+". Apague o campo que deve ser calculado."}
+  Object.assign(res,{n,P,i});return res;
+}
+function montaDiv(d,res,old){
+  const contrato=d.modo==="contrato",ini=contrato?d.ini:d.prox;
+  return {id:d.id||uid(),nome:String(d.nome||"").trim(),tipo:d.tipo,sis:d.sis,modo:contrato?"contrato":"saldo",
+    saldo:r2(res.S0),n:res.n,parcela:d.sis==="sac"?0:r2(res.P),p1:d.sis==="sac"?r2(res.P):0,taxa:res.i,un:d.un||"m",
+    taxaInf:res.calc==="taxa",semTaxaFim:res.calc==="taxa"&&d.sis!=="sac",calc:res.calc,enc:r2(parseVal(d.enc)),
+    ref:addM(ini,-1),auto0:contrato?(ini>CUR?ini:addM(CUR,1)):ini,dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),c:d.c,folha:!!d.folha,
+    extras:old&&old.ref===addM(ini,-1)?old.extras||{}:{}};
+}
+function atualizaDiv(){ // atualiza só os textos da folha (sem redesenhar os campos enquanto se digita)
+  const sh=S.sheet;if(!sh||sh.type!=="divida")return;const d=sh.d,res=calcDiv(d);
+  for(const k of ["parcela","n","taxa"]){const el=document.querySelector(`#box [data-k="${k}"]`);if(!el)continue;const on=res.calc===k&&!res.erro;
+    el.classList.toggle("calc",on);el.placeholder=on?(k==="parcela"?numIn(r2(res.P)):k==="n"?String(res.n):pctIn(d.un==="a"?m2a(res.i):res.i)):"";
+    const tg=document.getElementById("tag-"+k);if(tg)tg.classList.toggle("on",on)}
+  const eq=$("div-eq");if(eq)eq.textContent=res.i!=null&&!res.erro?(d.un==="a"?`${fmtPct(m2a(res.i))}% a.a. = ${fmtPct(res.i)}% a.m. (juros efetivos)`:`${fmtPct(res.i)}% a.m. = ${fmtPct(m2a(res.i))}% a.a. (juros efetivos)`):"";
+  const box=$("div-res");if(!box)return;
+  if(res.erro){box.innerHTML=`<div class="small muted">${esc(res.erro)}</div>`;return}
+  if(res.aviso){box.innerHTML=`<div class="banner">${esc(res.aviso)}</div>`;return}
+  const okData=/^\d{4}-\d{2}$/.test(d.modo==="contrato"?d.ini||"":d.prox||"");if(!okData){box.innerHTML=`<div class="small muted">Informe o mês da ${d.modo==="contrato"?"1ª":"próxima"} parcela.</div>`;return}
+  const tmp=montaDiv(d,res,null),r=sched(tmp);if(!r.length){box.innerHTML="";return}
+  const tot=r.reduce((a,x)=>a+x.pago,0),jur=r.reduce((a,x)=>a+x.j,0),enc=(+tmp.enc||0)*r.length,ult=r[r.length-1];
+  let h=`<div class="boxf"><b>Resumo</b>`;
+  if(d.modo==="contrato"){const pagas=r.filter(x=>x.m<=CUR),sd=pagas.length?pagas[pagas.length-1].s:res.S0;
+    h+=`<div class="row sp"><span>Saldo devedor hoje</span><b class="num">${brl(sd)}</b></div><div class="small muted">${pagas.length} de ${r.length} parcelas consideradas pagas (até ${mLabS(CUR)}).</div>`}
+  h+=`<div class="row sp"><span>Total a pagar</span><b class="num">${brl(tot)}</b></div><div class="row sp"><span>Total de juros</span><span class="num">${brl(jur)}</span></div>`;
+  if(enc)h+=`<div class="row sp"><span>Encargos no período</span><span class="num">${brl(enc)}</span></div>`;
+  if(d.sis==="sac")h+=`<div class="row sp"><span>1ª e última parcela</span><span class="num">${brl(r[0].pago)} → ${brl(ult.pago)}</span></div>`;
+  h+=`<div class="row sp"><span>Quitação</span><span>${mLab(ult.m)}</span></div>${r.bad?`<div class="banner">A parcela não cobre os juros do mês.</div>`:""}</div>`;
+  box.innerHTML=h;
+}
 // Cronograma de uma dívida a partir do mês de referência (saldo informado vale após a parcela de d.ref).
 function sched(d){
   const rows=[];let s=+d.saldo||0,m=d.ref,k=0;const i=+d.taxa||0;
@@ -217,7 +289,7 @@ const DEF={v:1,
   metas:{},contas:[{id:"pix",n:"Pix / Débito",tipo:"conta"},{id:"din",n:"Dinheiro",tipo:"conta"},{id:"cartao1",n:"Cartão",tipo:"cartao",fech:0,venc:0}],
   fixos:[],dividas:[]};
 const CUR=ymOf(todayStr());
-const S={db:null,user:"",login:false,loginErr:"",err:"",started:"",cfg:null,meses:{},ready:false,mem:false,slow:false,tab:"lancar",sub:null,month:CUR,sheet:null,filt:{c:"",t:""},plano:{extra:"",estr:"juros"},got:{cfg:false,meses:false}};
+const S={db:null,user:"",login:false,loginErr:"",err:"",started:"",cfg:null,meses:{},ready:false,mem:false,slow:false,tab:"lancar",plan:"orcamento",sub:null,month:CUR,sheet:null,filt:{c:"",t:""},plano:{extra:"",estr:"juros"},got:{cfg:false,meses:false}};
 let F=newForm();
 function newForm(keep){return {t:"D",v:"",g:"",s:"",c:keep?keep.c:"",d:keep?keep.d:todayStr(),o:"",parc:false,pa:"1",pt:"",modo:"total",fat:"",moreG:false,moreS:false}}
 const conta=id=>(S.cfg.contas||[]).find(c=>c.id===id);
@@ -242,18 +314,18 @@ function estFixo(f,m){ // média dos 3 últimos valores confirmados antes do mê
 }
 function fixoItem(f,m){const it={id:uid(),d:dateInMonth(m,f.dia),t:f.t,g:f.g,s:f.s||"",o:f.o,v:recorrente(f)?+f.v:r2(estFixo(f,m)),c:f.c,fx:f.id,ts:Date.now()};if(!recorrente(f))it.est=true;return it}
 const TIPOS={financiamento:"FINANCIAMENTO",consignado:"CONSIGNADO",emprestimo:"EMPRÉSTIMO",outro:"OUTRAS"};
-function dividaItem(d,row){return {id:uid(),d:dateInMonth(row.m,d.dia),t:"D",g:"DÍVIDAS",s:TIPOS[d.tipo]||"OUTRAS",o:d.nome,v:r2(row.pago),c:d.c,dv:d.id,ts:Date.now()}}
+function dividaItem(d,row){return {id:uid(),d:dateInMonth(row.m,d.dia),t:"D",g:"DÍVIDAS",s:TIPOS[d.tipo]||"OUTRAS",o:d.nome,v:r2(row.pago+(+d.enc||0)),c:d.c,dv:d.id,ts:Date.now()}}
 function autoFor(m,mes){ // itens automáticos que faltam no mês m
   const out=[];const has=(k,id)=>mes.itens.some(i=>i[k]===id)||(mes.skip||[]).includes(id);
   for(const f of S.cfg.fixos||[])if(fixoAtivoEm(f,m)&&!has("fx",f.id))out.push(fixoItem(f,m));
-  for(const d of S.cfg.dividas||[]){if(d.folha||has("dv",d.id))continue;const row=schedOf(d).find(r=>r.m===m);if(row&&row.pago>0)out.push(dividaItem(d,row))}
+  for(const d of S.cfg.dividas||[]){if(d.folha||has("dv",d.id)||m<(d.auto0||addM(d.ref,1)))continue;const row=schedOf(d).find(r=>r.m===m);if(row&&row.pago>0)out.push(dividaItem(d,row))}
   return out;
 }
 function ensureAuto(){ // grava os automáticos dos meses já iniciados (até o mês atual)
   if(!S.ready||!S.cfg)return;
   let first=CUR;
   for(const f of S.cfg.fixos||[])if(f.ini<first)first=f.ini;
-  for(const d of S.cfg.dividas||[])if(addM(d.ref,1)<first)first=addM(d.ref,1);
+  for(const d of S.cfg.dividas||[]){const a0=d.auto0||addM(d.ref,1);if(a0<first)first=a0}
   if(diffM(first,CUR)>24)first=addM(CUR,-24);
   for(let m=first;m<=CUR;m=addM(m,1)){
     const mes=clone(getMes(m));const add=autoFor(m,mes);
@@ -270,19 +342,20 @@ function itemsOf(m){ // itens gravados + previstos (meses futuros)
 const tot=(its,t)=>its.filter(i=>i.t===t).reduce((a,i)=>a+(+i.v||0),0);
 
 /* ---------- renderização ---------- */
-const TABS=[["lancar","Lançar"],["extrato","Extrato"],["resumo","Resumo"],["relatorios","Relatórios"],["mais","Mais"]];
+const TABS=[["inicio","Início"],["extrato","Extrato"],["lancar","Lançar"],["planejar","Planejar"],["mais","Mais"]];
+const SUBS=[["orcamento","Orçamento"],["projecao","Projeção"],["economias","Economias"],["dividas","Dívidas"]];
 function render(){
   schedCache=new Map();
   const ae=document.activeElement,aid=ae&&ae.id,ss=ae&&ae.selectionStart,se=ae&&ae.selectionEnd;
   if(S.login||S.err){$("nav").innerHTML="";$("hdr").innerHTML="";$("main").innerHTML=S.err?`<div class="card" style="margin-top:24px"><h2>Não foi possível abrir</h2><div>${esc(S.err)}</div><button class="btn pri big" onclick="location.reload()">Tentar de novo</button></div>`:vLogin();renderSheet();return}
-  $("nav").innerHTML=TABS.map(([k,l])=>`<button data-a="tab" data-v="${k}" ${S.tab===k?'aria-current="page"':""}>${l}</button>`).join("");
-  const showM=S.tab==="extrato"||S.tab==="resumo"||S.tab==="relatorios"||(S.tab==="mais"&&S.sub==="cartoes");
+  $("nav").innerHTML=TABS.map(([k,l])=>k==="lancar"?`<button class="plus" data-a="tab" data-v="lancar" aria-label="Lançar" ${S.tab===k?'aria-current="page"':""}><span aria-hidden="true">+</span></button>`:`<button data-a="tab" data-v="${k}" ${S.tab===k?'aria-current="page"':""}>${l}</button>`).join("");
+  const showM=S.tab==="extrato"||S.tab==="inicio"||(S.tab==="planejar"&&S.plan!=="dividas")||(S.tab==="mais"&&S.sub==="cartoes");
   $("hdr").innerHTML=showM?`<div class="mnav"><button data-a="mes" data-v="-1" aria-label="Mês anterior">‹</button><b>${mLab(S.month)}</b><button data-a="mes" data-v="1" aria-label="Próximo mês">›</button></div>`:"";
   let h="";
   if(!S.cfg){h=`<div class="empty">${S.slow?"Ainda não foi possível acessar os dados. Verifique a conexão; a página continua tentando.":"Carregando seus dados…"}</div>`}
   else{
     if(S.slow)h+=`<div class="banner">Sem conexão com o servidor no momento. Você pode continuar lançando: tudo é enviado quando a internet voltar.</div>`;
-    h+=({lancar:vLancar,extrato:vExtrato,resumo:vResumo,relatorios:vRel,mais:vMais}[S.tab])();
+    h+=({inicio:vInicio,lancar:vLancar,extrato:vExtrato,planejar:vPlanejar,mais:vMais}[S.tab])();
   }
   $("main").innerHTML=h;
   if(aid&&$(aid)&&$(aid)!==document.activeElement){const el=$(aid);el.focus();try{if(ss!=null)el.setSelectionRange(ss,se)}catch(e){}}
@@ -389,30 +462,63 @@ function vExtrato(){
   return h+`</div></div>`;
 }
 
-function vResumo(){
-  const m=S.month,its=itemsOf(m),rec=tot(its,"R"),desp=tot(its,"D"),saldo=rec-desp;
-  let h=`<div class="tiles"><div class="tile"><span>Receitas</span><b class="pos">${brl0(rec)}</b></div><div class="tile"><span>Despesas</span><b class="neg">${brl0(desp)}</b></div><div class="tile"><span>Saldo</span><b class="${saldo<0?"neg":""}">${brl0(saldo)}</b></div></div>`;
-  if(m>CUR)h+=`<div class="small muted">Mês futuro: inclui fixos, parcelas e dívidas já previstos.</div>`;
-  else if(rec>0)h+=`<div class="small muted">Você gastou ${Math.round(desp/rec*100)}% da renda de ${mLab(m)}.</div>`;
-  const by={};for(const i of its)if(i.t==="D")by[i.g]=(by[i.g]||0)+i.v;
-  const prev={};for(let k=1;k<=3;k++)for(const i of getMes(addM(m,-k)).itens)if(i.t==="D")prev[i.g]=(prev[i.g]||0)+i.v/3;
-  const names=[...new Set([...S.cfg.desp.map(g=>g.n),...Object.keys(by)])].filter(n=>by[n]||S.cfg.metas[n]).sort((a,b)=>(by[b]||0)-(by[a]||0));
-  const estour=names.filter(n=>S.cfg.metas[n]&&(by[n]||0)>S.cfg.metas[n]);
-  if(estour.length)h+=`<div class="card"><h2>Onde cortar</h2>${estour.map(n=>`<div class="row sp"><span>${esc(n)}</span><span class="pill n">${brl0(by[n]-S.cfg.metas[n])} acima da meta</span></div>`).join("")}</div>`;
-  h+=`<div class="card"><div class="row sp"><h2>Gasto por grupo</h2><span class="small muted">traço = meta</span></div>`;
-  if(!names.length)h+=`<div class="empty">Sem despesas em ${mLab(m)}.</div>`;
-  for(const n of names){const v=by[n]||0,meta=+S.cfg.metas[n]||0;const mx=Math.max(v,meta)*1.08||1;
+function gastoGrupos(m){const by={};for(const i of itemsOf(m))if(i.t==="D")by[i.g]=(by[i.g]||0)+i.v;
+  const names=[...new Set([...S.cfg.desp.map(g=>g.n),...Object.keys(by)])].filter(n=>by[n]||S.cfg.metas[n]).sort((a,b)=>(by[b]||0)-(by[a]||0));return {by,names}}
+function barrasGrupos(m,names,by,comMedia){const prev={};if(comMedia)for(let k=1;k<=3;k++)for(const i of getMes(addM(m,-k)).itens)if(i.t==="D")prev[i.g]=(prev[i.g]||0)+i.v/3;
+  let h="";for(const n of names){const v=by[n]||0,meta=+S.cfg.metas[n]||0;const mx=Math.max(v,meta)*1.08||1;
     h+=`<div><div class="row sp"><span>${esc(n)}</span><span class="num">${brl0(v)}${meta?` <span class="muted small">/ ${brl0(meta)}</span>`:""}</span></div>
     <div class="bar" style="margin:6px 0 2px"><i class="${meta&&v>meta?"over":""}" style="width:${v/mx*100}%"></i>${meta?`<u style="left:${meta/mx*100}%"></u>`:""}</div>
     ${prev[n]?`<div class="small muted">média dos 3 meses anteriores: ${brl0(prev[n])}</div>`:""}</div>`}
-  h+=`</div>`;
+  return h;}
+function tilesMes(m){const its=itemsOf(m),rec=tot(its,"R"),desp=tot(its,"D"),saldo=rec-desp;
+  let h=`<div class="tiles"><div class="tile"><span>Receitas</span><b class="pos">${brl0(rec)}</b></div><div class="tile"><span>Despesas</span><b class="neg">${brl0(desp)}</b></div><div class="tile"><span>Saldo</span><b class="${saldo<0?"neg":""}">${brl0(saldo)}</b></div></div>`;
+  if(m>CUR)h+=`<div class="small muted">Mês futuro: inclui fixos, parcelas e dívidas já previstos.</div>`;
+  return h;}
+function grafico6(m){
   const ms=[];for(let k=5;k>=0;k--)ms.push(addM(m,-k));
   const dat=ms.map(x=>{const it=itemsOf(x);return {m:x,r:tot(it,"R"),d:tot(it,"D")}});
   const mx=Math.max(1,...dat.map(x=>Math.max(x.r,x.d)));const W=320,H=120,bw=16;
   let svg=`<svg viewBox="0 0 ${W} ${H+34}" width="100%" role="img" aria-label="Receitas e despesas dos últimos 6 meses"><text x="0" y="10">${brl0(mx)}</text><line x1="0" y1="14" x2="${W}" y2="14" stroke="var(--line)"/><line x1="0" y1="${H+14}" x2="${W}" y2="${H+14}" stroke="var(--line)"/>`;
   dat.forEach((x,k)=>{const cx=28+k*((W-56)/5);const hr=x.r/mx*H,hd=x.d/mx*H;
     svg+=`<rect x="${cx-bw-1}" y="${H+14-hr}" width="${bw}" height="${hr}" rx="2" fill="var(--pos)"/><rect x="${cx+1}" y="${H+14-hd}" width="${bw}" height="${hd}" rx="2" fill="var(--neg)"/><text x="${cx}" y="${H+28}" text-anchor="middle">${mLabS(x.m)}</text>`});
-  h+=`<div class="card"><div class="row sp"><h2>Últimos 6 meses</h2><span class="small"><span class="pos">■</span> receitas <span class="neg">■</span> despesas</span></div>${svg}</svg></div>`;
+  return `<div class="card"><div class="row sp"><h2>Receitas e despesas · 6 meses</h2><span class="small"><span class="pos">■</span> receitas <span class="neg">■</span> despesas</span></div>${svg}</svg></div>`;
+}
+// Próximos vencimentos (10 dias a partir de hoje): faturas de cartão não pagas, fixos e parcelas de dívidas
+function vencimentos(){
+  const hoje=todayStr(),lim=(()=>{const d=new Date(hoje+"T12:00:00");d.setDate(d.getDate()+10);return d.getFullYear()+"-"+p2(d.getMonth()+1)+"-"+p2(d.getDate())})();
+  const L=[];
+  for(const mm of [CUR,addM(CUR,1)]){const its=itemsOf(mm);
+    for(const i of its){if(i.t!=="D"||!(i.fx||i.dv))continue;const c=conta(i.c);if(c&&c.tipo==="cartao")continue;if(i.d>=hoje&&i.d<=lim)L.push({d:i.d,n:i.o||i.s||i.g,v:i.v,est:i.est})}
+    for(const c of S.cfg.contas.filter(x=>x.tipo==="cartao"&&x.venc)){const due=dateInMonth(mm,c.venc);if(due<hoje||due>lim||(getMes(mm).pagas||{})[c.id])continue;
+      const v=its.filter(i=>i.c===c.id&&i.t==="D").reduce((a,i)=>a+i.v,0);if(v>0)L.push({d:due,n:"Fatura "+c.n,v})}}
+  return L.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+}
+function vInicio(){
+  const m=S.month,its=itemsOf(m);let h=tilesMes(m);
+  const P=vRel();h+=P.comp;
+  // alertas
+  const {by,names}=gastoGrupos(m);const al=[];
+  for(const n of names){const meta=+S.cfg.metas[n]||0;if(meta&&(by[n]||0)>meta)al.push(`<div class="row sp"><span>${esc(n)}</span><span class="pill n">${brl0(by[n]-meta)} acima da meta</span></div>`)}
+  for(const i of its.filter(i=>i.est&&!i.virt))al.push(`<button class="it" data-a="edit" data-m="${m}" data-id="${i.id}"><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} <span class="pill w">estimado</span></div><div class="small muted">Toque para informar o valor real</div></div><div class="num">${brl(i.v)}</div></button>`);
+  if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d;if(sd<0)al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`)}}
+  h+=`<div class="card"><h2>Atenção</h2>${al.length?al.join(""):`<div class="small muted">Nada pedindo atenção agora.</div>`}</div>`;
+  // próximos vencimentos
+  const V=vencimentos();
+  h+=`<div class="card"><h2>Próximos 10 dias</h2>${V.length?V.slice(0,8).map(x=>`<div class="vrow"><span class="dt">${dLab(x.d)}</span><span class="grow">${esc(x.n)}${x.est?` <span class="pill w">estimado</span>`:""}</span><span class="num">${brl(x.v)}</span></div>`).join(""):`<div class="small muted">Nenhum vencimento cadastrado nos próximos 10 dias.</div>`}</div>`;
+  // 5 maiores grupos
+  const top=names.filter(n=>by[n]).slice(0,5);
+  h+=`<div class="card"><div class="row sp"><h2>Maiores gastos · ${mLab(m)}</h2><span class="small muted">traço = meta</span></div>${top.length?barrasGrupos(m,top,by,false):`<div class="empty">Sem despesas em ${mLab(m)}.</div>`}
+  <button class="btn lnk" data-a="goplan" data-v="orcamento">Ver todos os grupos ›</button></div>`;
+  return h;
+}
+function vPlanejar(){
+  let h=`<div class="subtabs">${SUBS.map(([k,l])=>`<button data-a="plan" data-v="${k}" aria-pressed="${S.plan===k}">${l}</button>`).join("")}</div>`;
+  if(S.plan==="dividas")return h+vDividas();
+  const P=vRel(),m=S.month;
+  if(S.plan==="orcamento"){const {by,names}=gastoGrupos(m);
+    h+=`<div class="card"><div class="row sp"><h2>Gasto por grupo · ${mLab(m)}</h2><span class="small muted">traço = meta</span></div>${names.length?barrasGrupos(m,names,by,true):`<div class="empty">Sem despesas em ${mLab(m)}.</div>`}</div>`+P.orc+P.onde+P.rec}
+  else if(S.plan==="projecao")h+=P.proj+grafico6(m)+P.sobra;
+  else h+=P.econ;
   return h;
 }
 
@@ -445,14 +551,14 @@ function vDividas(){
     const prox=fut[0];const pct=d.saldo>0?Math.max(0,Math.min(1,1-s/d.saldo)):1;
     h+=`<div style="border-top:1px solid var(--line);padding-top:10px;display:flex;flex-direction:column;gap:6px">
     <div class="row sp"><b>${esc(d.nome)}</b><span class="num"><b>${brl(s)}</b></span></div>
-    <div class="small muted">${TIPOS[d.tipo]||""} · ${(d.taxa*100).toFixed(2).replace(".",",")}% a.m.${d.taxaInf?" (calculada)":""} · ${d.sis==="sac"?"SAC":"parcela fixa"}${d.folha?" · desconto em folha":""}</div>
+    <div class="small muted">${TIPOS[d.tipo]||""} · ${d.un==="a"?fmtPct(m2a(d.taxa))+"% a.a. ("+fmtPct(d.taxa)+"% a.m.)":fmtPct(d.taxa)+"% a.m."}${d.taxaInf?" calculada":""} · ${d.sis==="sac"?"SAC":"parcela fixa"}${d.folha?" · desconto em folha":""}</div>
     <div class="bar"><i style="width:${pct*100}%"></i></div>
-    <div class="row sp small"><span>${prox?`Próxima: ${brl(prox.pago)} (${brl(prox.j)} de juros)`:"Quitada"}</span><span>${fut.length?`${fut.length} parcelas · até ${mLabS(fim)}`:""}</span></div>
+    <div class="row sp small"><span>${prox?`Próxima: ${brl(prox.pago+(+d.enc||0))} (${brl(prox.j)} de juros${+d.enc?", "+brl(d.enc)+" de encargos":""})`:"Quitada"}</span><span>${fut.length?`${fut.length} parcelas · até ${mLabS(fim)}`:""}</span></div>
     ${r.bad?`<div class="banner">A parcela não cobre os juros do mês: nesse ritmo o saldo não diminui. Confira taxa e parcela.</div>`:""}
     <div class="row"><button class="btn" data-a="divida" data-id="${d.id}">Editar</button><button class="btn" data-a="extra" data-id="${d.id}">Amortização extra</button></div></div>`}
   h+=`</div>`;
   // comprometido
-  const rows=[];for(let k=1;k<=12;k++){const m=addM(CUR,k);const dv=ds.reduce((a,d)=>{const x=schedOf(d).find(q=>q.m===m);return a+(x?x.pago:0)},0);rows.push({m,c:cf[m]||0,dv})}
+  const rows=[];for(let k=1;k<=12;k++){const m=addM(CUR,k);const dv=ds.reduce((a,d)=>{const x=schedOf(d).find(q=>q.m===m);return a+(x?x.pago+(+d.enc||0):0)},0);rows.push({m,c:cf[m]||0,dv})}
   const mxc=Math.max(1,...rows.map(x=>x.c+x.dv));
   if(rows.some(x=>x.c+x.dv>0)){h+=`<div class="card"><div class="row sp"><h2>Já comprometido nos próximos meses</h2></div><div class="small"><span style="color:var(--accent)">■</span> dívidas <span style="color:var(--warn)">■</span> parcelas de cartão</div>`;
     for(const x of rows){if(!(x.c+x.dv))continue;h+=`<div class="row"><span class="small" style="width:52px">${mLabS(x.m)}</span><div class="grow" style="display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--line)"><i style="width:${x.dv/mxc*100}%;background:var(--accent)"></i><i style="width:${x.c/mxc*100}%;background:var(--warn)"></i></div><span class="num small" style="width:84px;text-align:right">${brl0(x.c+x.dv)}</span></div>`}
@@ -479,7 +585,7 @@ function vMais(){
   if(S.sub==="metas")return back()+vMetas();
   if(S.sub==="cats")return back()+vCats();
   if(S.sub==="dividas")return back()+vDividas();
-  return `<div class="card list">${[["dividas","Dívidas"],["cartoes","Cartões e contas"],["fixos","Lançamentos fixos"],["metas","Metas por grupo"],["cats","Grupos e subgrupos"]].map(([k,l])=>`<button class="go" data-a="sub" data-v="${k}"><span>${l}</span><span class="muted">›</span></button>`).join("")}
+  return `<div class="card list">${[["cartoes","Cartões e contas"],["fixos","Lançamentos fixos"],["metas","Metas por grupo"],["cats","Grupos e subgrupos"]].map(([k,l])=>`<button class="go" data-a="sub" data-v="${k}"><span>${l}</span><span class="muted">›</span></button>`).join("")}
 </div>
   <div class="card list"><h2>Exportar e importar</h2>
   <button class="go" data-a="xlsAno"><span><span style="display:block">Excel completo</span><span class="small muted">Planilha do seu modelo: resumo, anual, dívidas e economias de um ano</span></span><span class="muted">.xlsx</span></button>
@@ -503,7 +609,7 @@ const n0=v=>(+v||0).toLocaleString("pt-BR",{maximumFractionDigits:0});
 const ECON=[["cx","Caixinha"],["cb","Cashback"],["ou","Outros investimentos"]];
 const econTot=m=>{const e=getMes(m).econ||{};return ECON.reduce((a,[k])=>a+(+e[k]||0),0)};
 function vRel(){
-  const m=S.month,ano=m.slice(0,4);let h="";
+  const m=S.month,ano=m.slice(0,4);let h="";const P={};
   // 1. comprometido x livre (mês selecionado)
   const it=itemsOf(m),rec=tot(it,"R"),comp=it.filter(i=>i.t==="D"&&comprometido(i)).reduce((a,i)=>a+i.v,0),vari=tot(it,"D")-comp,livre=rec-comp-vari;
   const base=Math.max(rec,comp+vari,1),pc=v=>rec>0?Math.round(v/rec*100)+"% da renda":"";
@@ -512,6 +618,7 @@ function vRel(){
   <div class="row sp"><span><span style="color:var(--accent)">■</span> Comprometido (fixos, parcelas, dívidas)</span><span class="num">${brl0(comp)}</span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(comp)}</div>
   <div class="row sp"><span><span style="color:var(--warn)">■</span> Variável (dia a dia)</span><span class="num">${brl0(vari)}</span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(vari)}</div>
   <div class="row sp"><span><span class="pos">■</span> ${livre<0?"Faltou":"Sobrou"}</span><span class="num ${livre<0?"neg":"pos"}"><b>${brl0(livre)}</b></span></div><div class="small muted" style="text-align:right;margin-top:-8px">${pc(livre)}</div></div>`;
+  P.comp=h;h="";
   // 2. projeção dos próximos 12 meses
   const e=estimativas();let ac=0;
   const pr=[];for(let k=1;k<=12;k++){const x=addM(CUR,k),t=itemsOf(x);const entra=tot(t,"R")+e.r,sai=tot(t,"D")+e.d;ac+=entra-sai;pr.push({x,entra,sai,saldo:entra-sai,ac})}
@@ -522,6 +629,7 @@ function vRel(){
   ${pr.map(q=>`<tr><td>${mLabS(q.x)}</td><td class="num">${n0(q.entra)}</td><td class="num">${n0(q.sai)}</td><td class="num ${q.saldo<0?"neg":"pos"}">${n0(q.saldo)}</td><td class="num ${q.ac<0?"neg":""}">${n0(q.ac)}</td></tr>`).join("")}</table></div>
   ${neg.length?`<div class="banner">${neg.length} ${neg.length===1?"mês fecha":"meses fecham"} no vermelho: ${neg.slice(0,6).map(q=>mLabS(q.x)).join(", ")}${neg.length>6?"…":""}.</div>`:""}
   ${!pr.some(q=>q.entra>0)?`<div class="small muted">Para a projeção mostrar suas receitas, cadastre o salário como fixo do tipo Receita em Mais › Lançamentos fixos.</div>`:""}</div>`;
+  P.proj=h;h="";
   // 3. economias do ano
   let acE=0,totG=0;const rowsE=[];
   for(let k=1;k<=12;k++){const x=ano+"-"+p2(k);const g=econTot(x);const t=getMes(x).itens;if(!g&&!t.length)continue;const sd=tot(t,"R")-tot(t,"D"),tm=g+sd;acE+=tm;totG+=g;rowsE.push({x,g,sd,tm,ac:acE})}
@@ -530,11 +638,13 @@ function vRel(){
   else{h+=`<div style="overflow-x:auto"><table><tr><th>Mês</th><th>Guardado</th><th>Saldo</th><th>Total</th><th>Acum.</th></tr>${rowsE.map(q=>`<tr data-a="econ" data-m="${q.x}" style="cursor:pointer"><td style="white-space:nowrap">${mLabS(q.x)} <span style="color:var(--accent)">✎</span></td><td class="num">${q.g?n0(q.g):"—"}</td><td class="num ${q.sd<0?"neg":""}">${n0(q.sd)}</td><td class="num ${q.tm<0?"neg":""}">${n0(q.tm)}</td><td class="num ${q.ac<0?"neg":""}">${n0(q.ac)}</td></tr>`).join("")}</table></div>
     <div class="row sp"><span>Total guardado no ano</span><b class="num">${brl0(totG)}</b></div>`}
   h+=`</div>`;
+  P.econ=h;h="";
   // 4. quanto sobrou da renda
   h+=`<div class="card"><h2>Quanto sobrou da renda · 6 meses</h2>`;
   for(let k=5;k>=0;k--){const x=addM(m,-k),t=itemsOf(x),r=tot(t,"R"),d=tot(t,"D");const tx=r>0?(r-d)/r:null;
     h+=`<div class="row"><span class="small" style="width:52px">${mLabS(x)}</span><div class="grow bar"><i class="${tx!==null&&tx<0?"over":""}" style="width:${tx===null?0:Math.min(Math.abs(tx),1)*100}%"></i></div><span class="num small ${tx!==null&&tx<0?"neg":""}" style="width:110px;text-align:right">${tx===null?"sem receita":brl0(r-d)+" · "+Math.round(tx*100)+"%"}</span></div>`}
   h+=`</div>`;
+  P.sobra=h;h="";
   // 5. orçado x realizado no ano
   const lim=ano+"-12"<CUR?ano+"-12":CUR;const ms=[];for(let x=ano+"-01";x<=lim;x=addM(x,1))if(getMes(x).itens.length)ms.push(x);
   const real={};for(const x of ms)for(const i of getMes(x).itens)if(i.t==="D")real[i.g]=(real[i.g]||0)+i.v;
@@ -547,6 +657,7 @@ function vRel(){
       h+=`<tr><td>${esc(g)}</td><td class="num">${o?n0(o):"—"}</td><td class="num">${n0(r)}</td><td class="num ${o&&r>o?"neg":o?"pos":""}">${o?n0(o-r):"—"}</td></tr>`}
     h+=`<tr><td><b>Total</b></td><td class="num"><b>${n0(tO)}</b></td><td class="num"><b>${n0(tR)}</b></td><td class="num ${tR>tO?"neg":"pos"}"><b>${n0(tO-tR)}</b></td></tr></table></div><div class="small muted">Valores em R$. Diferença positiva = gastou menos que o orçado.</div>`}
   h+=`</div>`;
+  P.orc=h;h="";
   // 6. para onde vai o dinheiro
   const sub={};let nm=0;for(let k=0;k<3;k++){const t=getMes(addM(m,-k)).itens;if(!t.length)continue;nm++;for(const i of t)if(i.t==="D"){const key=i.g+(i.s?" › "+i.s:"");sub[key]=(sub[key]||0)+i.v}}
   const top=Object.entries(sub).map(([k,v])=>[k,v/Math.max(nm,1)]).sort((a,b)=>b[1]-a[1]).slice(0,10);
@@ -555,6 +666,7 @@ function vRel(){
   else{h+=`<div class="small muted">Dez maiores subgrupos, média mensal de ${nm} ${nm===1?"mês":"meses"} até ${mLabS(m)}.</div>`;
     for(const [k,v] of top)h+=`<div><div class="row sp"><span>${esc(k)}</span><span class="num">${brl0(v)}</span></div><div class="bar" style="margin-top:5px"><i style="width:${v/top[0][1]*100}%"></i></div></div>`}
   h+=`</div>`;
+  P.onde=h;h="";
   // 7. receitas por fonte
   const fr={};let tr=0;for(const x of ms)for(const i of getMes(x).itens)if(i.t==="R"){const key=i.g+(i.s?" › "+i.s:"");fr[key]=(fr[key]||0)+i.v;tr+=i.v}
   h+=`<div class="card"><h2>Receitas por fonte · ${ano}</h2>`;
@@ -562,7 +674,7 @@ function vRel(){
   if(!fl.length)h+=`<div class="empty">Sem receitas lançadas em ${ano}.</div>`;
   else{for(const [k,v] of fl)h+=`<div><div class="row sp"><span>${esc(k)}</span><span class="num">${brl0(v)} <span class="muted small">· ${Math.round(v/tr*100)}%</span></span></div><div class="bar" style="margin-top:5px"><i style="width:${v/fl[0][1]*100}%;background:var(--pos)"></i></div></div>`;
     h+=`<div class="row sp"><b>Total</b><b class="num">${brl0(tr)}</b></div><div class="small muted">Média de ${brl0(tr/ms.length)} por mês.</div>`}
-  return h+`</div>`;
+  P.rec=h+`</div>`;return P;
 }
 function vCartoes(){
   let h="";const m=S.month;
@@ -667,14 +779,26 @@ function renderSheet(){
     <button class="btn pri big" data-a="saveFixo">Salvar</button>
     <div class="row wrap">${d.id?`<button class="btn" data-a="pauseFixo">${d.ativo===false?"Reativar":"Pausar"}</button><button class="btn dng" data-a="delFixo">Excluir fixo</button>`:""}<button class="btn" data-a="close">Cancelar</button></div>`;
   }else if(sh.type==="divida"){
+    const contrato=d.modo==="contrato",sac=d.sis==="sac";
+    const cin=(id,k,l,v,ex)=>`<label class="fld"><span>${l}<span class="tagc" id="tag-${k}">calculado</span></span><input id="${id}" data-sc="sh" data-k="${k}" data-calc="1" value="${esc(v==null?"":v)}" ${ex}></label>`;
     h=`<h3>${d.id?"Editar dívida":"Nova dívida"}</h3>${sin("s-nome","nome","Nome (ex.: Financiamento do apartamento)",d.nome)}
-    <div class="row"><label class="fld">Tipo<select id="s-tipo" data-sc="sh" data-k="tipo">${[["financiamento","Financiamento"],["consignado","Consignado"],["emprestimo","Empréstimo"],["outro","Outra"]].map(([v,l])=>opt(v,l,d.tipo)).join("")}</select></label>
-    <label class="fld">Sistema<select id="s-sis" data-sc="sh" data-k="sis">${opt("price","Parcela fixa (Price)",d.sis)}${opt("sac","Parcela decrescente (SAC)",d.sis)}</select></label></div>
-    <div class="row">${sin("s-saldo","saldo","Saldo devedor hoje",d.saldo,dec)}${sin("s-parcela","parcela","Parcela mensal",d.parcela,dec)}</div>
-    <div class="row">${sin("s-n","n","Parcelas restantes",d.n,int)}${sin("s-taxa","taxa","Juros % ao mês",d.taxa,dec)}</div>
-    <div class="small muted">Informe o saldo e pelo menos dois entre parcela, parcelas restantes e juros. Se deixar os juros em branco, a taxa é calculada a partir dos outros dois.</div>
-    <div class="row">${sin("s-prox","prox","Próxima parcela em",d.prox,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>${selC(true)}
+    <div class="row"><label class="fld">Tipo<select id="s-tipo" data-sc="sh" data-k="tipo" data-r="1">${[["financiamento","Financiamento"],["consignado","Consignado"],["emprestimo","Empréstimo"],["outro","Outra"]].map(([v,l])=>opt(v,l,d.tipo)).join("")}</select></label>
+    <label class="fld">Sistema<select id="s-sis" data-sc="sh" data-k="sis" data-r="1">${opt("price","Price (parcela fixa)",d.sis)}${opt("sac","SAC (parcela decrescente)",d.sis)}</select></label></div>
+    <div class="small muted">Ponto de partida</div>
+    <div class="seg"><button data-a="shset" data-k="modo" data-v="saldo" aria-pressed="${!contrato}">Saldo de hoje</button><button data-a="shset" data-k="modo" data-v="contrato" aria-pressed="${contrato}">Dados do contrato</button></div>
+    ${contrato?`<div class="row">${cin("s-valor","valor","Valor do contrato",d.valor,dec)}${cin("s-n","n","Prazo total (parcelas)",d.n,int)}</div>
+      <div class="row">${sin("s-ini","ini","1ª parcela em",d.ini,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>`
+    :`<div class="row">${cin("s-saldo","saldo","Saldo devedor hoje",d.saldo,dec)}${cin("s-n","n","Parcelas restantes",d.n,int)}</div>
+      <div class="row">${sin("s-prox","prox","Próxima parcela em",d.prox,'type="month"')}${sin("s-dia","dia","Dia do vencimento",d.dia,int)}</div>`}
+    <div class="row">${cin("s-parcela","parcela",sac?(contrato?"1ª parcela do contrato":"Próxima parcela"):"Parcela",d.parcela,dec)}
+      <label class="fld"><span>Juros efetivos (%)<span class="tagc" id="tag-taxa">calculado</span></span><span class="taxa-row"><input id="s-taxa" data-sc="sh" data-k="taxa" data-calc="1" value="${esc(d.taxa)}" type="text" inputmode="decimal" placeholder=""><span class="seg"><button data-a="shset" data-k="un" data-v="m" aria-pressed="${d.un!=="a"}">a.m.</button><button data-a="shset" data-k="un" data-v="a" aria-pressed="${d.un==="a"}">a.a.</button></span></span></label></div>
+    <div class="small muted" id="div-eq"></div>
+    <div class="small muted">Preencha dois entre ${sac?"parcela":"parcela"}, nº de parcelas e juros; o que ficar vazio é calculado. Juros com até 3 casas decimais (ex.: 0,875).</div>
+    ${cin("s-enc","enc","Encargos mensais (opcional)",d.enc,dec)}
+    <div class="small muted">Seguros e taxas cobrados junto com a parcela (ex.: MIP, DFI, taxa de administração). Somam no valor lançado, mas não entram no cálculo de juros nem no saldo.</div>
+    ${selC(true)}
     <label class="chk"><input id="s-folha" type="checkbox" data-sc="sh" data-k="folha" ${d.folha?"checked":""}> Descontada em folha (não lançar como despesa, pois o salário já entra líquido)</label>
+    <div id="div-res"></div>
     <button class="btn pri big" data-a="saveDivida">Salvar</button>
     <div class="row wrap">${d.id?`<button class="btn dng" data-a="delDivida">Excluir dívida</button>`:""}<button class="btn" data-a="close">Cancelar</button></div>`;
   }else if(sh.type==="extra"){
@@ -718,6 +842,7 @@ function renderSheet(){
     h=`<h3>${esc(d.titulo)}</h3><div>${esc(d.txt)}</div><button class="btn" data-a="close">Fechar</button>`;
   }
   $("box").innerHTML=h;el.classList.add("on");
+  if(sh.type==="divida")atualizaDiv();
   if(aid&&$(aid)&&aid.startsWith("s-"))$(aid).focus();
 }
 function blocoFixo(d){
@@ -772,16 +897,12 @@ function saveFixo(){
   closeSheet();ensureAuto();toast("Fixo salvo.");render();
 }
 function saveDivida(){
-  const d=S.sheet.d;const saldo=parseVal(d.saldo);let parcela=parseVal(d.parcela),n=parseInt(d.n)||0,taxa=parseVal(d.taxa)/100;const temTaxa=String(d.taxa||"").trim()!=="";
-  if(!String(d.nome||"").trim()||!(saldo>0)||!/^\d{4}-\d{2}$/.test(d.prox||"")){toast("Preencha nome, saldo devedor e o mês da próxima parcela.");return}
-  let taxaInf=false,semTaxaFim=false;
-  if(d.sis==="sac"){if(!n){toast("No SAC, informe as parcelas restantes.");return}parcela=0}
-  else if(temTaxa&&parcela>0){}
-  else if(temTaxa&&n){parcela=r2(pmtOf(saldo,taxa,n))}
-  else if(parcela>0&&n){taxa=impliedRate(saldo,parcela,n);taxaInf=true;semTaxaFim=true}
-  else{toast("Informe pelo menos dois entre parcela, parcelas restantes e juros.");return}
-  const old=S.cfg.dividas.find(x=>x.id===d.id);
-  const nv={id:d.id||uid(),nome:d.nome.trim(),tipo:d.tipo,sis:d.sis,saldo:r2(saldo),parcela,n,taxa,taxaInf,semTaxaFim,ref:addM(d.prox,-1),dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),c:d.c,folha:!!d.folha,extras:old&&old.ref===addM(d.prox,-1)?old.extras||{}:{}};
+  const d=S.sheet.d;
+  if(!String(d.nome||"").trim()){toast("Informe o nome da dívida.");return}
+  const mesIni=d.modo==="contrato"?d.ini:d.prox;
+  if(!/^\d{4}-\d{2}$/.test(mesIni||"")){toast("Informe o mês da "+(d.modo==="contrato"?"1ª":"próxima")+" parcela.");return}
+  const res=calcDiv(d);if(res.erro){toast(res.erro);return}if(res.aviso){toast("Os três valores não batem. Apague o campo que deve ser calculado.");return}
+  const old=S.cfg.dividas.find(x=>x.id===d.id);const nv=montaDiv(d,res,old);
   const ix=S.cfg.dividas.findIndex(x=>x.id===nv.id);if(ix>=0)S.cfg.dividas[ix]=nv;else S.cfg.dividas.push(nv);
   if(!S.cfg.desp.find(g=>g.n==="DÍVIDAS"))S.cfg.desp.push({n:"DÍVIDAS",s:Object.values(TIPOS)});
   saveCfg();schedCache=new Map();closeSheet();ensureAuto();toast("Dívida salva.");render();
@@ -997,18 +1118,22 @@ function doImport(){
 /* ---------- eventos ---------- */
 const scopeOf=t=>t.dataset.sc==="sh"?(S.sheet&&S.sheet.d):t.dataset.sc==="filt"?S.filt:t.dataset.sc==="plano"?S.plano:F;
 document.addEventListener("input",e=>{const t=e.target;if(!t.dataset||!t.dataset.k)return;const o=scopeOf(t);if(o)o[t.dataset.k]=t.type==="checkbox"?t.checked:t.value;
+  if(t.dataset.calc&&S.sheet&&S.sheet.type==="divida")atualizaDiv();
   if(t.dataset.r&&t.type==="text"){if(t.dataset.sc==="sh")renderSheet();else render()}});
 document.addEventListener("change",e=>{const t=e.target;if(!t.dataset)return;
   if(t.id==="imp"){if(t.files&&t.files[0])lerImport(t.files[0]);t.value="";return}
   if(t.dataset.meta!==undefined){const v=parseVal(t.value);if(v>0)S.cfg.metas[t.dataset.meta]=r2(v);else delete S.cfg.metas[t.dataset.meta];saveCfg();render();return}
   if(t.dataset.a==="paga"){const mes=clone(getMes(S.month));mes.pagas=mes.pagas||{};if(t.checked)mes.pagas[t.dataset.c]=true;else delete mes.pagas[t.dataset.c];saveMes(S.month,mes);render();return}
   if(t.dataset.k){const o=scopeOf(t);if(o)o[t.dataset.k]=t.type==="checkbox"?t.checked:t.value;
-    if(t.dataset.k==="d"&&o===F)F.fat="";if(t.dataset.k==="g"&&t.dataset.sc==="sh")o.s="";
+    if(t.dataset.k==="d"&&o===F)F.fat="";
+    if(t.dataset.k==="tipo"&&S.sheet&&S.sheet.type==="divida"&&o===S.sheet.d&&o.unAuto)setUn(o,unPadrao(o.tipo));if(t.dataset.k==="g"&&t.dataset.sc==="sh")o.s="";
     if(t.dataset.r&&t.type!=="text"){if(t.dataset.sc==="sh")renderSheet();else render()}}});
 document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="f-v"){e.preventDefault();doLancar()}if(e.key==="Escape"&&S.sheet)closeSheet()});
 $("sheet").addEventListener("click",e=>{if(e.target===$("sheet"))closeSheet()});
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b||b.tagName==="INPUT")return;const a=b.dataset.a,v=b.dataset.v;
+  if(a==="plan"){S.plan=v;render();$("main").scrollTop=0;return}
+  if(a==="goplan"){S.tab="planejar";S.plan=v;S.sub=null;try{location.hash="planejar"}catch(x){}render();$("main").scrollTop=0;return}
   if(a==="tab"){S.tab=v;S.sub=null;try{location.hash=v}catch(x){}render();$("main").scrollTop=0}
   else if(a==="mes"){S.month=addM(S.month,+v);render()}
   else if(a==="set"){F[b.dataset.k]=F[b.dataset.k]===v&&b.dataset.k==="s"?"":v;if(b.dataset.k==="t"){F.g="";F.s="";F.parc=false;F.moreG=false;F.moreS=false}if(b.dataset.k==="g"){F.s="";F.moreS=false}if(b.dataset.k==="c")F.fat="";render()}
@@ -1018,13 +1143,18 @@ document.addEventListener("click",e=>{
   else if(a==="close")closeSheet();
   else if(a==="sub"){S.sub=v||null;render();$("main").scrollTop=0}
   else if(a==="estr"){S.plano.estr=v;render()}
+  else if(a==="shset"&&b.dataset.k==="un"&&S.sheet&&S.sheet.type==="divida"){setUn(S.sheet.d,v);S.sheet.d.unAuto=false;renderSheet()}
   else if(a==="shset"){S.sheet.d[b.dataset.k]=v;if(b.dataset.k==="t"){S.sheet.d.g="";S.sheet.d.s=""}renderSheet()}
   else if(a==="fixo"){const f=S.cfg.fixos.find(x=>x.id===b.dataset.id);openSheet("fixo",f?{...clone(f),v:numIn(f.v),atual:true,rec:f.rec!==false}:{rec:true,t:"D",o:"",v:"",dia:"5",g:"",s:"",c:S.cfg.contas[0].id,ini:CUR,fim:"",ativo:true})}
   else if(a==="saveFixo")saveFixo();
   else if(a==="pauseFixo"){const f=S.cfg.fixos.find(x=>x.id===S.sheet.d.id);if(f){f.ativo=f.ativo===false;saveCfg();closeSheet();ensureAuto();toast(f.ativo?"Fixo reativado.":"Fixo pausado: não entra mais nos próximos meses.");render()}}
   else if(a==="delFixo"){S.cfg.fixos=S.cfg.fixos.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Fixo excluído. Lançamentos já feitos foram mantidos.");render()}
-  else if(a==="divida"){const d=S.cfg.dividas.find(x=>x.id===b.dataset.id);const cc=(S.cfg.contas.find(c=>c.tipo!=="cartao")||S.cfg.contas[0]).id;
-    openSheet("divida",d?{...clone(d),saldo:numIn(d.saldo),parcela:numIn(d.parcela),n:d.n||"",taxa:d.taxaInf?"":numIn(r2(d.taxa*100)),prox:addM(d.ref,1)}:{nome:"",tipo:"financiamento",sis:"price",saldo:"",parcela:"",n:"",taxa:"",prox:addM(CUR,1),dia:"5",c:cc,folha:false})}
+  else if(a==="divida"){const x=S.cfg.dividas.find(q=>q.id===b.dataset.id);const cc=(S.cfg.contas.find(c=>c.tipo!=="cartao")||S.cfg.contas[0]).id;
+    if(x){const modo=x.modo||"saldo",un=x.un||"m",calc=x.calc||(x.taxaInf?"taxa":(!x.n?"n":(x.sis==="sac"&&!x.p1?"parcela":null)));
+      openSheet("divida",{...clone(x),modo,un,unAuto:false,saldo:modo==="saldo"?numIn(x.saldo):"",valor:modo==="contrato"?numIn(x.saldo):"",
+        n:calc==="n"?"":String(x.n||""),parcela:calc==="parcela"?"":numIn(x.sis==="sac"?x.p1:x.parcela),taxa:calc==="taxa"?"":pctIn(un==="a"?m2a(x.taxa):x.taxa),
+        prox:addM(x.ref,1),ini:addM(x.ref,1),enc:numIn(x.enc),dia:String(x.dia||"")})}
+    else openSheet("divida",{nome:"",tipo:"financiamento",sis:"price",modo:"saldo",un:"a",unAuto:true,saldo:"",valor:"",parcela:"",n:"",taxa:"",prox:addM(CUR,1),ini:addM(CUR,1),dia:"5",enc:"",c:cc,folha:false})}
   else if(a==="saveDivida")saveDivida();
   else if(a==="delDivida"){S.cfg.dividas=S.cfg.dividas.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Dívida excluída. Parcelas já lançadas foram mantidas.");render()}
   else if(a==="extra"){const d=S.cfg.dividas.find(x=>x.id===b.dataset.id);const cc=(S.cfg.contas.find(c=>c.tipo!=="cartao")||S.cfg.contas[0]).id;if(d)openSheet("extra",{id:d.id,nome:d.nome,v:"",m:CUR>d.ref?CUR:addM(d.ref,1),c:cc})}

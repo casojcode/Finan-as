@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Fine",
   "short_name": "Fine",
   "description": "Controle de gastos, cartões, dívidas e economias.",
@@ -25,5 +26,9 @@
       "type": "image/png",
       "purpose": "maskable"
     }
-  ]
+  ],
+  "display_override": [
+    "standalone"
+  ],
+  "orientation": "portrait"
 }

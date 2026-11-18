@@ -9,6 +9,10 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ## Pessoal
 
+### pessoal-v1.3.1 — 2026-11-17
+- Instalável como aplicativo: ao adicionar à tela inicial, abre em tela cheia, sem a barra do navegador.
+- Início esconde os quadros Atenção e Próximos 10 dias quando estão vazios.
+
 ### pessoal-v1.3 — 2026-11-17
 - Grupos e subgrupos: renomear e excluir tocando no nome; ao excluir um grupo com lançamentos, escolhe-se o grupo de destino (lançamentos, fixos e meta vão junto). DÍVIDAS e ANTECIPAÇÃO são protegidos.
 - Grupos e subgrupos sempre em ordem alfabética; vários subgrupos de uma vez (separados por vírgula ou um por linha).

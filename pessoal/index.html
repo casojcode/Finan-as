@@ -41,6 +41,7 @@ html,body{height:100%;margin:0}
 body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.4;-webkit-text-size-adjust:100%}
 .logo{display:flex;align-items:center;font-family:"Sora",var(--display);font-weight:800;font-size:26px;letter-spacing:-.04em;line-height:1;color:var(--logo-ink);margin:0}
 .logo .cif{width:.6em;height:1.2em;margin-left:.02em;margin-top:.08em}
+html.modo-teste #app::before{content:"MODO TESTE · dados separados dos reais";display:block;background:#B23A2B;color:#fff;font:600 12px var(--body);text-align:center;padding:4px;letter-spacing:.04em}
 #app{height:100%;max-width:560px;margin:0 auto;display:flex;flex-direction:column;background:var(--bg)}
 header{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px 8px}
 .x-unused{font-family:var(--display);font-size:20px;font-weight:600;margin:0;letter-spacing:.01em}
@@ -995,11 +996,14 @@ try{
   try{fs=F.initializeFirestore(app,{ignoreUndefinedProperties:true,localCache:F.persistentLocalCache({tabManager:F.persistentMultipleTabManager()})})}
   catch(e){fs=F.initializeFirestore(app,{ignoreUndefinedProperties:true})}
   const meta=m=>({fromCache:m.fromCache,hasPendingWrites:m.hasPendingWrites});
+  const TESTE=/^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if(TESTE)document.documentElement.classList.add("modo-teste");
+  const pre=TESTE?["dev","teste"]:[]; // em teste local: users/{uid}/dev/teste/... (dados reais intocados)
   const mk=uid=>({
-    doc:p=>{const r=F.doc(fs,"users",uid,...p.split("/"));return{
+    doc:p=>{const r=F.doc(fs,"users",uid,...pre,...p.split("/"));return{
       set:d=>F.setDoc(r,d),
       onSnapshot:(n,e)=>F.onSnapshot(r,{includeMetadataChanges:true},s=>n({exists:s.exists(),data:()=>s.data(),metadata:meta(s.metadata)}),e)}},
-    collection:p=>{const r=F.collection(fs,"users",uid,...p.split("/"));return{
+    collection:p=>{const r=F.collection(fs,"users",uid,...pre,...p.split("/"));return{
       onSnapshot:(n,e)=>F.onSnapshot(r,{includeMetadataChanges:true},s=>n({docs:s.docs.map(d=>({id:d.id,data:()=>d.data()})),metadata:meta(s.metadata)}),e)}}
   });
   window.fbLogin=async()=>{

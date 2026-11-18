@@ -9,6 +9,15 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ## Pessoal
 
+### pessoal-v1.4 — 2026-11-18
+- Planejar › Economias reformulado: cadastro de investimentos (tipo, instituição, meta, rentabilidade esperada em % do CDI ou % a.a., liquidez/vencimento).
+- Atualização mensal de aportes, resgates e saldo de cada investimento; o app calcula o rendimento do mês e do ano e compara com o esperado.
+- Patrimônio, cashback e tabela do ano (aplicado, cashback, rendeu, patrimônio).
+- Aportes não entram como despesa: o mês mostra quanto sobrou, quanto foi aplicado e quanto ficou livre.
+- Valores antigos de Caixinha e Outros investimentos convertidos automaticamente em investimentos.
+- Início avisa quando um investimento vence nos próximos 30 dias.
+- Excel completo e Excel backup acompanham o novo formato.
+
 ### pessoal-v1.3.1 — 2026-11-17
 - Instalável como aplicativo: ao adicionar à tela inicial, abre em tela cheia, sem a barra do navegador.
 - Início esconde os quadros Atenção e Próximos 10 dias quando estão vazios.

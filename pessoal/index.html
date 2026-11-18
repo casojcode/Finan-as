@@ -101,6 +101,11 @@ input[type=text],input[type=date],input[type=month],input[type=number],select{wi
 .bar u{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
 .banner{border-radius:10px;padding:10px 12px;background:var(--warn-soft);color:var(--warn);font-size:13.5px}
 .empty{color:var(--muted);text-align:center;padding:18px 8px}
+textarea{width:100%;min-height:96px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font:inherit;resize:vertical}
+.chip.more{border-style:dashed;color:var(--muted)}
+.gh{display:flex;align-items:center;gap:6px;background:none;border:0;padding:4px 0;cursor:pointer;color:var(--ink);font:600 15px var(--body);text-align:left}
+.gh .ed{color:var(--accent);font-weight:500;font-size:13px}
+.boxf{border:1px solid var(--line);border-radius:10px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--surface)}
 #toast{position:fixed;left:50%;top:12px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:14px;max-width:calc(100% - 32px);opacity:0;pointer-events:none;transition:opacity .2s;z-index:30}
 #toast.on{opacity:1}
 #sheet{position:fixed;inset:0;background:rgba(8,20,22,.5);display:none;align-items:flex-end;justify-content:center;z-index:20}
@@ -214,7 +219,7 @@ const DEF={v:1,
 const CUR=ymOf(todayStr());
 const S={db:null,user:"",login:false,loginErr:"",err:"",started:"",cfg:null,meses:{},ready:false,mem:false,slow:false,tab:"lancar",sub:null,month:CUR,sheet:null,filt:{c:"",t:""},plano:{extra:"",estr:"juros"},got:{cfg:false,meses:false}};
 let F=newForm();
-function newForm(keep){return {t:"D",v:"",g:"",s:"",c:keep?keep.c:"",d:keep?keep.d:todayStr(),o:"",parc:false,pa:"1",pt:"",modo:"parcela",fat:""}}
+function newForm(keep){return {t:"D",v:"",g:"",s:"",c:keep?keep.c:"",d:keep?keep.d:todayStr(),o:"",parc:false,pa:"1",pt:"",modo:"total",fat:"",moreG:false,moreS:false}}
 const conta=id=>(S.cfg.contas||[]).find(c=>c.id===id);
 const emptyMes=()=>({itens:[],skip:[],pagas:{},econ:{}});
 const getMes=m=>S.meses[m]||emptyMes();
@@ -230,7 +235,12 @@ function saveCfg(){write("cfg/main",S.cfg)}
 
 /* ---------- lançamentos automáticos (fixos e parcelas de dívidas) ---------- */
 const fixoAtivoEm=(f,m)=>f.ativo!==false&&m>=f.ini&&(!f.fim||m<=f.fim);
-function fixoItem(f,m){return {id:uid(),d:dateInMonth(m,f.dia),t:f.t,g:f.g,s:f.s||"",o:f.o,v:+f.v,c:f.c,fx:f.id,ts:Date.now()}}
+const recorrente=f=>f.rec!==false;
+function estFixo(f,m){ // média dos 3 últimos valores confirmados antes do mês m; sem histórico, o valor cadastrado
+  const vals=[];for(const x of Object.keys(S.meses).filter(k=>k<m).sort().reverse()){for(const i of S.meses[x].itens)if(i.fx===f.id&&!i.est)vals.push(+i.v);if(vals.length>=3)break}
+  const v3=vals.slice(0,3);return v3.length?v3.reduce((a,b)=>a+b,0)/v3.length:+f.v;
+}
+function fixoItem(f,m){const it={id:uid(),d:dateInMonth(m,f.dia),t:f.t,g:f.g,s:f.s||"",o:f.o,v:recorrente(f)?+f.v:r2(estFixo(f,m)),c:f.c,fx:f.id,ts:Date.now()};if(!recorrente(f))it.est=true;return it}
 const TIPOS={financiamento:"FINANCIAMENTO",consignado:"CONSIGNADO",emprestimo:"EMPRÉSTIMO",outro:"OUTRAS"};
 function dividaItem(d,row){return {id:uid(),d:dateInMonth(row.m,d.dia),t:"D",g:"DÍVIDAS",s:TIPOS[d.tipo]||"OUTRAS",o:d.nome,v:r2(row.pago),c:d.c,dv:d.id,ts:Date.now()}}
 function autoFor(m,mes){ // itens automáticos que faltam no mês m
@@ -280,10 +290,23 @@ function render(){
 }
 const opt=(v,l,sel)=>`<option value="${esc(v)}" ${v===sel?"selected":""}>${esc(l)}</option>`;
 const grupos=t=>t==="R"?S.cfg.rec:S.cfg.desp;
+const cmpTxt=(a,b)=>String(a).localeCompare(String(b),"pt-BR",{sensitivity:"base"});
+function ordenaCfg(c){for(const k of ["rec","desp"])if(Array.isArray(c[k])){c[k].sort((a,b)=>cmpTxt(a.n,b.n));for(const g of c[k])if(Array.isArray(g.s))g.s.sort(cmpTxt)}return c}
+function usoSub(t,g){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t&&i.g===g&&i.s)u[i.s]=(u[i.s]||0)+1;return u}
+const VIS=6;
+function chipsLimitados(lista,freq,sel,k,aberto){ // item 7: mais usados primeiro, o resto atrás de "⋯ mais"
+  const ord=lista.slice().sort((a,b)=>(freq[b]||0)-(freq[a]||0)||cmpTxt(a,b));
+  let vis=ord.slice(0,VIS);const resto=ord.slice(VIS).sort(cmpTxt);
+  if(aberto)vis=vis.concat(resto);else if(sel&&resto.includes(sel))vis.push(sel);
+  let h=vis.map(x=>`<button class="chip" data-a="set" data-k="${k}" data-v="${esc(x)}" aria-pressed="${sel===x}">${esc(x)}</button>`).join("");
+  if(resto.length)h+=`<button class="chip more" data-a="more" data-k="${k}">${aberto?"menos":"⋯ mais "+resto.length}</button>`;
+  return h;
+}
+function usoG(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t)u[i.g]=(u[i.g]||0)+1;return u}
 function usoGrupos(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t===t)u[i.g]=(u[i.g]||0)+1;return grupos(t).slice().sort((a,b)=>(u[b.n]||0)-(u[a.n]||0))}
 function itRow(i,m){
   const c=conta(i.c);const sub=[i.g+(i.s?" › "+i.s:""),c?c.n:""].filter(Boolean).join(" · ");
-  const tags=(i.pt?`<span class="pill">${i.pn}/${i.pt}</span> `:"")+(i.fx?`<span class="pill">fixo</span> `:"")+(i.virt?`<span class="pill w">previsto</span> `:"");
+  const tags=(i.pt?`<span class="pill">${i.pn}/${i.pt}</span> `:"")+(i.fx?`<span class="pill">fixo</span> `:"")+(i.est?`<span class="pill w">estimado</span> `:"")+(i.virt?`<span class="pill w">previsto</span> `:"");
   return `<button class="it" ${i.virt?"disabled":`data-a="edit" data-m="${m}" data-id="${i.id}"`}><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} ${tags}</div><div class="small muted">${esc(sub)}</div></div><div class="num ${i.t==="R"?"pos":""}">${i.t==="R"?"+":""}${brl(i.v)}</div></button>`;
 }
 
@@ -303,8 +326,8 @@ function vLancar(){
   <div class="seg t"><button data-a="set" data-k="t" data-v="D" aria-pressed="${F.t==="D"}">Despesa</button><button data-a="set" data-k="t" data-v="R" aria-pressed="${F.t==="R"}">Receita</button></div>
   <div class="valor"><span>R$</span><input id="f-v" type="text" inputmode="decimal" placeholder="0,00" autocomplete="off" data-k="v" value="${esc(F.v)}" aria-label="Valor"></div>
   <div class="small muted">Grupo</div>
-  <div class="chips">${gs.map(x=>`<button class="chip" data-a="set" data-k="g" data-v="${esc(x.n)}" aria-pressed="${F.g===x.n}">${esc(x.n)}</button>`).join("")}</div>
-  ${g&&g.s.length?`<div class="small muted">Subgrupo</div><div class="chips">${g.s.map(x=>`<button class="chip" data-a="set" data-k="s" data-v="${esc(x)}" aria-pressed="${F.s===x}">${esc(x)}</button>`).join("")}</div>`:""}
+  <div class="chips">${chipsLimitados(grupos(F.t).map(x=>x.n),usoG(F.t),F.g,"g",F.moreG)}</div>
+  ${g&&g.s.length?`<div class="small muted">Subgrupo</div><div class="chips">${chipsLimitados(g.s,usoSub(F.t,g.n),F.s,"s",F.moreS)}</div>`:""}
   <div class="small muted">${F.t==="D"?"Forma de pagamento":"Onde entrou"}</div>
   <div class="chips">${cs.map(x=>`<button class="chip ${x.tipo==="cartao"?"cc":""}" data-a="set" data-k="c" data-v="${x.id}" aria-pressed="${F.c===x.id}">${esc(x.n)}</button>`).join("")}</div>
   <div class="row"><label class="fld">Data<input id="f-d" type="date" data-k="d" data-r="1" value="${F.d}"></label>
@@ -316,7 +339,7 @@ function vLancar(){
     if(F.parc){
       const pt=parseInt(F.pt)||0,pa=parseInt(F.pa)||1,v=parseVal(F.v);const vp=F.modo==="total"&&pt?r2(v/pt):v;
       h+=`<div class="row"><label class="fld">Parcela atual<input id="f-pa" type="text" inputmode="numeric" data-k="pa" data-r="1" value="${esc(F.pa)}"></label><label class="fld">de (total)<input id="f-pt" type="text" inputmode="numeric" data-k="pt" data-r="1" placeholder="12" value="${esc(F.pt)}"></label></div>
-      <div class="seg"><button data-a="set" data-k="modo" data-v="parcela" aria-pressed="${F.modo==="parcela"}">Valor é da parcela</button><button data-a="set" data-k="modo" data-v="total" aria-pressed="${F.modo==="total"}">Valor é o total</button></div>
+      <div class="seg"><button data-a="set" data-k="modo" data-v="total" aria-pressed="${F.modo==="total"}">Valor é o total</button><button data-a="set" data-k="modo" data-v="parcela" aria-pressed="${F.modo==="parcela"}">Valor é da parcela</button></div>
       ${pt>=pa&&v>0?`<div class="small muted">Serão lançadas as parcelas ${pa} a ${pt} de ${brl(vp)}, de ${mLab(fat)} a ${mLab(addM(fat,pt-pa))}.${pa>1?" As anteriores não são criadas.":""}</div>`:""}`;
     }
   }
@@ -327,6 +350,7 @@ function vLancar(){
   return h;
 }
 function doLancar(){
+  const ae=document.activeElement;if(ae&&ae.blur&&ae!==document.body)ae.blur(); // encerra o texto "preso" no teclado do celular
   const v=parseVal(F.v);if(!(v>0)){toast("Informe o valor.");return}
   if(!F.g){toast("Escolha o grupo.");return}
   const c=conta(F.c);const card=c&&c.tipo==="cartao";
@@ -552,13 +576,14 @@ function vCartoes(){
   return h+`<button class="btn" data-a="conta" data-id="">+ Novo cartão ou conta</button>`;
 }
 function vFixos(){
-  const fs=S.cfg.fixos||[];const totF=fs.filter(f=>fixoAtivoEm(f,CUR>f.ini?CUR:f.ini)&&f.t==="D").reduce((a,f)=>a+ +f.v,0);
+  const fs=S.cfg.fixos||[];const valF=f=>recorrente(f)?+f.v:estFixo(f,addM(CUR,1));
+  const totF=fs.filter(f=>fixoAtivoEm(f,CUR>f.ini?CUR:f.ini)&&f.t==="D").reduce((a,f)=>a+valF(f),0);
   let h=`<div class="small muted">Entram sozinhos todo mês a partir do mês de início. Para mudar o valor só de um mês, edite o lançamento no Extrato.</div>
   <div class="card"><div class="row sp"><h2>Fixos · ${brl0(totF)} por mês</h2><button class="btn lnk" data-a="fixo" data-id="">+ Novo fixo</button></div><div>`;
   if(!fs.length)h+=`<div class="empty">Nenhum fixo cadastrado.</div>`;
   for(const f of fs){const st=f.ativo===false?`<span class="pill w">pausado</span>`:f.fim&&f.fim<CUR?`<span class="pill w">encerrado</span>`:f.ini>CUR?`<span class="pill">a partir de ${mLabS(f.ini)}</span>`:"";
-    h+=`<button class="it" data-a="fixo" data-id="${f.id}"><div class="grow"><div class="t1">${esc(f.o)} ${st}</div><div class="small muted">${esc(f.g+(f.s?" › "+f.s:""))} · dia ${f.dia} · ${esc((conta(f.c)||{}).n||"")}</div></div><div class="num ${f.t==="R"?"pos":""}">${brl(f.v)}</div></button>`}
-  return h+`</div></div>`;
+    h+=`<button class="it" data-a="fixo" data-id="${f.id}"><div class="grow"><div class="t1">${esc(f.o)} ${st}${recorrente(f)?"":` <span class="pill w">varia</span>`}</div><div class="small muted">${esc(f.g+(f.s?" › "+f.s:""))} · dia ${f.dia} · ${esc((conta(f.c)||{}).n||"")}</div></div><div class="num ${f.t==="R"?"pos":""}">${recorrente(f)?"":"≈ "}${brl(valF(f))}</div></button>`}
+  return h+`</div></div><div class="small muted">"Varia" = fixo não recorrente: cada mês entra com uma estimativa (média dos 3 últimos valores confirmados) até você informar o valor real.</div>`;
 }
 function vMetas(){
   const med={};for(let k=1;k<=3;k++)for(const i of getMes(addM(CUR,-k)).itens)if(i.t==="D")med[i.g]=(med[i.g]||0)+i.v/3;
@@ -567,12 +592,48 @@ function vMetas(){
   S.cfg.desp.forEach((g,k)=>{h+=`<div class="row"><div class="grow"><div>${esc(g.n)}</div>${med[g.n]?`<div class="small muted">média 3 meses: ${brl0(med[g.n])}</div>`:""}</div><input id="mt-${k}" type="text" inputmode="decimal" style="width:120px;text-align:right" data-meta="${esc(g.n)}" placeholder="sem meta" value="${numIn(S.cfg.metas[g.n])}"></div>`});
   return h+`</div>`;
 }
+const PROTEGIDOS=["DÍVIDAS","ANTECIPAÇÃO"];
+function usoDoGrupo(t,g){let n=0;for(const m in S.meses)for(const i of S.meses[m].itens)if(i.t===t&&i.g===g)n++;return n+(S.cfg.fixos||[]).filter(f=>f.t===t&&f.g===g).length}
 function vCats(){
-  let h="";
+  let h=`<div class="small muted">Em ordem alfabética. Toque no nome de um grupo ou subgrupo para renomear ou excluir.</div>`;
   for(const [t,l] of [["D","Despesas"],["R","Receitas"]]){h+=`<div class="card"><div class="row sp"><h2>${l}</h2><button class="btn lnk" data-a="addg" data-t="${t}">+ Grupo</button></div>`;
-    grupos(t).forEach((g,k)=>{h+=`<div style="border-top:1px solid var(--line);padding-top:8px"><div class="row sp"><b>${esc(g.n)}</b><button class="btn lnk" data-a="adds" data-t="${t}" data-g="${k}">+ Subgrupo</button></div><div class="chips" style="margin-top:6px">${g.s.map((s,j)=>`<button class="chip" data-a="dels" data-t="${t}" data-g="${k}" data-s="${j}" title="Remover">${esc(s)} ×</button>`).join("")||`<span class="small muted">sem subgrupos</span>`}</div></div>`});
+    grupos(t).forEach((g,k)=>{h+=`<div style="border-top:1px solid var(--line);padding-top:8px"><div class="row sp"><button class="gh" data-a="editg" data-t="${t}" data-g="${k}">${esc(g.n)} <span class="ed">✎</span></button><button class="btn lnk" data-a="adds" data-t="${t}" data-g="${k}">+ Subgrupos</button></div><div class="chips" style="margin-top:6px">${g.s.map((s,j)=>`<button class="chip" data-a="edits" data-t="${t}" data-g="${k}" data-s="${j}">${esc(s)}</button>`).join("")||`<span class="small muted">sem subgrupos</span>`}</div></div>`});
     h+=`</div>`}
-  return h+`<div class="small muted">Tocar em um subgrupo o remove da lista; os lançamentos já feitos continuam como estão.</div>`;
+  return h;
+}
+function remapItens(fn){ // aplica fn a todos os lançamentos; grava só os meses alterados
+  for(const m of Object.keys(S.meses)){const mes=clone(S.meses[m]);let ch=false;for(const i of mes.itens)if(fn(i))ch=true;if(ch)saveMes(m,mes)}
+}
+function renomearGrupo(t,old,nv){
+  const g=grupos(t).find(x=>x.n===old);if(!g)return;
+  if(grupos(t).some(x=>x.n===nv&&x!==g)){toast("Já existe um grupo "+nv+". Para juntar os dois, exclua este e escolha "+nv+" como destino.");return false}
+  g.n=nv;if(S.cfg.metas[old]!=null){S.cfg.metas[nv]=S.cfg.metas[old];delete S.cfg.metas[old]}
+  for(const f of S.cfg.fixos)if(f.t===t&&f.g===old)f.g=nv;
+  remapItens(i=>{if(i.t===t&&i.g===old){i.g=nv;return true}});
+  ordenaCfg(S.cfg);saveCfg();return true;
+}
+function excluirGrupo(t,old,dest){
+  const lista=grupos(t),g=lista.find(x=>x.n===old);if(!g)return;
+  if(dest){const dg=lista.find(x=>x.n===dest);
+    const subs=new Set();remapItens(i=>{if(i.t===t&&i.g===old){i.g=dest;if(i.s)subs.add(i.s);return true}});
+    for(const f of S.cfg.fixos)if(f.t===t&&f.g===old){f.g=dest;if(f.s)subs.add(f.s)}
+    for(const x of subs)if(!dg.s.includes(x))dg.s.push(x);
+    if(S.cfg.metas[old]!=null&&S.cfg.metas[dest]==null)S.cfg.metas[dest]=S.cfg.metas[old];
+  }
+  delete S.cfg.metas[old];lista.splice(lista.indexOf(g),1);ordenaCfg(S.cfg);saveCfg();
+}
+function renomearSub(t,gn,old,nv){
+  const g=grupos(t).find(x=>x.n===gn);if(!g)return;
+  if(g.s.includes(nv))g.s.splice(g.s.indexOf(old),1);else g.s[g.s.indexOf(old)]=nv;
+  for(const f of S.cfg.fixos)if(f.t===t&&f.g===gn&&f.s===old)f.s=nv;
+  remapItens(i=>{if(i.t===t&&i.g===gn&&i.s===old){i.s=nv;return true}});
+  ordenaCfg(S.cfg);saveCfg();
+}
+function excluirSub(t,gn,old){
+  const g=grupos(t).find(x=>x.n===gn);if(!g)return;g.s.splice(g.s.indexOf(old),1);
+  for(const f of S.cfg.fixos)if(f.t===t&&f.g===gn&&f.s===old)f.s="";
+  remapItens(i=>{if(i.t===t&&i.g===gn&&i.s===old){i.s="";return true}});
+  saveCfg();
 }
 
 /* ---------- folhas (formulários de edição) ---------- */
@@ -590,12 +651,16 @@ function renderSheet(){
     h=`<h3>Editar lançamento</h3>${sin("s-v","v","Valor",d.v,dec)}${sin("s-o","o","Descrição",d.o)}
     <div class="row">${selG(d.t)}${selS(d.t)}</div><div class="row">${sin("s-d","d","Data",d.d,'type="date"')}${sin("s-m","m","Mês / fatura",d.m,'type="month"')}</div>${selC(d.t==="R")}
     ${d.pg?`<label class="chk"><input id="s-prox" type="checkbox" data-sc="sh" data-k="prox" ${d.prox?"checked":""}> Aplicar valor, grupo e descrição às próximas parcelas (${d.pn}/${d.pt})</label>`:""}
+    ${blocoFixo(d)}
     <button class="btn pri big" data-a="saveItem">Salvar</button>
     <div class="row wrap"><button class="btn dng" data-a="delItem" data-v="1">Excluir</button>${d.pg?`<button class="btn dng" data-a="delItem" data-v="2">Excluir esta e as próximas</button>`:""}<button class="btn" data-a="close">Cancelar</button></div>`;
   }else if(sh.type==="fixo"){
     h=`<h3>${d.id?"Editar fixo":"Novo fixo"}</h3>
     <div class="seg t"><button data-a="shset" data-k="t" data-v="D" aria-pressed="${d.t==="D"}">Despesa</button><button data-a="shset" data-k="t" data-v="R" aria-pressed="${d.t==="R"}">Receita</button></div>
-    ${sin("s-o","o","Descrição",d.o)}<div class="row">${sin("s-v","v","Valor mensal",d.v,dec)}${sin("s-dia","dia","Dia do mês",d.dia,int)}</div>
+    ${sin("s-o","o","Descrição",d.o)}
+    <label class="chk"><input id="s-rec" type="checkbox" data-sc="sh" data-k="rec" data-r="1" ${d.rec!==false?"checked":""}> Valor recorrente (igual todo mês)</label>
+    <div class="row">${sin("s-v","v",d.rec!==false?"Valor mensal":"Valor inicial (até ter histórico)",d.v,dec)}${sin("s-dia","dia","Dia do mês",d.dia,int)}</div>
+    ${d.rec===false?`<div class="small muted">Cada mês entra com a média dos 3 últimos valores confirmados, marcada como "estimado". Ao editar o lançamento com o valor real, ele passa a confirmado.</div>`:""}
     <div class="row">${selG(d.t)}${selS(d.t)}</div>${selC(d.t==="R")}
     <div class="row">${sin("s-ini","ini","Começa em",d.ini,'type="month"')}${sin("s-fim","fim","Termina em (opcional)",d.fim,'type="month"')}</div>
     ${d.id?`<label class="chk"><input id="s-atual" type="checkbox" data-sc="sh" data-k="atual" ${d.atual?"checked":""}> Atualizar também o lançamento de ${mLab(CUR)}</label>`:""}
@@ -623,7 +688,20 @@ function renderSheet(){
     <button class="btn pri big" data-a="saveConta">Salvar</button>
     <div class="row wrap">${d.id?`<button class="btn dng" data-a="delConta">Excluir</button>`:""}<button class="btn" data-a="close">Cancelar</button></div>`;
   }else if(sh.type==="nome"){
-    h=`<h3>${esc(d.titulo)}</h3>${sin("s-nome","nome","Nome",d.nome)}<button class="btn pri big" data-a="saveNome">Adicionar</button><button class="btn" data-a="close">Cancelar</button>`;
+    h=`<h3>${esc(d.titulo)}</h3>${d.g<0?sin("s-nome","nome","Nome",d.nome):`<label class="fld">Nomes (um por linha ou separados por vírgula)<textarea id="s-nome" data-sc="sh" data-k="nome" placeholder="LUZ, ÁGUA, GÁS">${esc(d.nome)}</textarea></label>`}<button class="btn pri big" data-a="saveNome">Adicionar</button><button class="btn" data-a="close">Cancelar</button>`;
+  }else if(sh.type==="grp"){
+    const prot=PROTEGIDOS.includes(d.n),uso=usoDoGrupo(d.t,d.n),outros=grupos(d.t).filter(x=>x.n!==d.n);
+    h=`<h3>Grupo ${esc(d.n)}</h3>`+(prot?`<div class="small muted">Este grupo é usado pelo app para dívidas e amortizações e não pode ser renomeado nem excluído.</div><button class="btn" data-a="close">Fechar</button>`:
+    `${sin("s-gnome","nome","Nome",d.nome)}<button class="btn pri big" data-a="saveGrp">Salvar nome</button>
+    <div class="boxf"><b>Excluir grupo</b>${uso?`<div class="small muted">Há ${uso} ${uso===1?"lançamento ou fixo":"lançamentos e fixos"} neste grupo. Escolha para onde vão:</div>
+    <label class="fld">Mover para<select id="s-gdest" data-sc="sh" data-k="dest">${opt("","Escolha um grupo",d.dest)}${outros.map(x=>opt(x.n,x.n,d.dest)).join("")}</select></label>`:`<div class="small muted">Este grupo não tem lançamentos.</div>`}
+    <button class="btn dng" data-a="delGrp">Excluir grupo ${esc(d.n)}</button></div>
+    <button class="btn" data-a="close">Cancelar</button>`);
+  }else if(sh.type==="sub"){
+    h=`<h3>Subgrupo ${esc(d.s)}</h3><div class="small muted">Grupo ${esc(d.g)}</div>${sin("s-snome","nome","Nome",d.nome)}
+    <button class="btn pri big" data-a="saveSub">Salvar nome</button>
+    <div class="row wrap"><button class="btn dng" data-a="delSub">Excluir subgrupo</button><button class="btn" data-a="close">Cancelar</button></div>
+    <div class="small muted">Ao excluir, os lançamentos continuam no grupo ${esc(d.g)}, sem subgrupo.</div>`;
   }else if(sh.type==="econ"){
     h=`<h3>Economias · ${mLab(d.m)}</h3>${ECON.map(([k,l])=>sin("s-"+k,k,l,d[k],dec)).join("")}
     <div class="small muted">Quanto você guardou ou recebeu neste mês. Deixe em branco o que não houve.</div>
@@ -642,17 +720,39 @@ function renderSheet(){
   $("box").innerHTML=h;el.classList.add("on");
   if(aid&&$(aid)&&aid.startsWith("s-"))$(aid).focus();
 }
+function blocoFixo(d){
+  if(d.pg||d.dv)return"";
+  const f=d.fx&&S.cfg.fixos.find(x=>x.id===d.fx);
+  const recChk=`<label class="chk"><input id="s-frec" type="checkbox" data-sc="sh" data-k="fixoRec" data-r="1" ${d.fixoRec!==false?"checked":""}> Valor recorrente (igual todo mês)</label>`;
+  const ajuda=d.fixoRec===false?`<div class="small muted">Os próximos meses entram com a média dos 3 últimos valores confirmados, marcados como "estimado".</div>`:"";
+  if(f)return `<div class="boxf"><b>Lançamento fixo${f.o?": "+esc(f.o):""}</b>
+    ${d.est?`<div class="small muted">Este valor é uma estimativa. Ao salvar, ele passa a valer como confirmado.</div>`:""}
+    ${recChk}${ajuda}
+    ${d.fixoRec!==false?`<label class="chk"><input id="s-fval" type="checkbox" data-sc="sh" data-k="fixoValFut" ${d.fixoValFut?"checked":""}> Usar este valor nos próximos meses</label>`:""}
+    <label class="chk"><input id="s-fenc" type="checkbox" data-sc="sh" data-k="fixoEnc" ${d.fixoEnc?"checked":""}> Encerrar o fixo depois deste mês</label></div>`;
+  if(d.fx)return"";
+  return `<div class="boxf"><label class="chk"><input id="s-fon" type="checkbox" data-sc="sh" data-k="fixoOn" data-r="1" ${d.fixoOn?"checked":""}> Repete todo mês (fixo)</label>
+    ${d.fixoOn?`${recChk}${ajuda}<div class="row">${sin("s-ffim","fixoFim","Termina em (opcional)",d.fixoFim,'type="month"')}</div><div class="small muted">Sem data de término, repete por tempo indeterminado.</div>`:""}</div>`;
+}
 function findItem(m,id){return getMes(m).itens.find(i=>i.id===id)}
 function saveItem(){
   const d=S.sheet.d;const v=parseVal(d.v);if(!(v>0)){toast("Informe o valor.");return}
   if(!/^\d{4}-\d{2}$/.test(d.m)||!d.d){toast("Confira a data e o mês.");return}
   const old=clone(getMes(d.m0));const ix=old.itens.findIndex(i=>i.id===d.id);if(ix<0){closeSheet();return}
-  const it={...old.itens[ix],v:r2(v),o:String(d.o||"").trim(),g:d.g,s:d.s,d:d.d,c:d.c};
+  const it={...old.itens[ix],v:r2(v),o:String(d.o||"").trim(),g:d.g,s:d.s,d:d.d,c:d.c};delete it.est;
+  let cfgMudou=false;
+  if(!it.fx&&d.fixoOn&&!it.pg&&!it.dv){
+    if(d.fixoFim&&d.fixoFim<d.m){toast("O término do fixo precisa ser a partir de "+mLab(d.m)+".");return}
+    const f={id:uid(),t:it.t,o:it.o||it.s||it.g,v:it.v,dia:Math.min(Math.max(parseInt(it.d.slice(8,10))||1,1),31),g:it.g,s:it.s||"",c:it.c,ini:d.m,fim:d.fixoFim||"",ativo:true,rec:d.fixoRec!==false};
+    S.cfg.fixos.push(f);it.fx=f.id;cfgMudou=true;
+  }else if(it.fx){const f=S.cfg.fixos.find(x=>x.id===it.fx);
+    if(f){f.rec=d.fixoRec!==false;if(f.rec&&d.fixoValFut)f.v=it.v;if(d.fixoEnc)f.fim=d.m;cfgMudou=true}}
+  if(cfgMudou)saveCfg();
   if(d.m===d.m0){old.itens[ix]=it;saveMes(d.m0,old)}
   else{old.itens.splice(ix,1);if(it.fx||it.dv)(old.skip=old.skip||[]).push(it.fx||it.dv);saveMes(d.m0,old);const nw=clone(getMes(d.m));nw.itens.push(it);saveMes(d.m,nw)}
   if(d.pg&&d.prox)for(const m in S.meses){if(m<=d.m)continue;const mes=clone(S.meses[m]);let ch=false;
     for(const x of mes.itens)if(x.pg===d.pg&&x.pn>it.pn){x.v=it.v;x.o=it.o;x.g=it.g;x.s=it.s;ch=true}if(ch)saveMes(m,mes)}
-  closeSheet();toast("Lançamento atualizado.");render();
+  closeSheet();if(cfgMudou)ensureAuto();toast(d.fixoOn&&!d.fx?"Lançamento atualizado e cadastrado como fixo.":"Lançamento atualizado.");render();
 }
 function delItem(mode){
   const d=S.sheet.d;const it=findItem(d.m0,d.id);if(!it){closeSheet();return}
@@ -666,7 +766,7 @@ function delItem(mode){
 function saveFixo(){
   const d=S.sheet.d;const v=parseVal(d.v);
   if(!String(d.o||"").trim()||!(v>0)||!d.g||!/^\d{4}-\d{2}$/.test(d.ini||"")){toast("Preencha descrição, valor, grupo e mês de início.");return}
-  const f={id:d.id||uid(),t:d.t,o:d.o.trim(),v:r2(v),dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),g:d.g,s:d.s||"",c:d.c,ini:d.ini,fim:d.fim||"",ativo:d.ativo!==false};
+  const f={id:d.id||uid(),t:d.t,o:d.o.trim(),v:r2(v),dia:Math.min(Math.max(parseInt(d.dia)||1,1),31),g:d.g,s:d.s||"",c:d.c,ini:d.ini,fim:d.fim||"",ativo:d.ativo!==false,rec:d.rec!==false};
   const ix=S.cfg.fixos.findIndex(x=>x.id===f.id);if(ix>=0)S.cfg.fixos[ix]=f;else S.cfg.fixos.push(f);saveCfg();
   if(d.id&&d.atual){const mes=clone(getMes(CUR));const it=mes.itens.find(i=>i.fx===f.id);if(it){Object.assign(it,{v:f.v,o:f.o,g:f.g,s:f.s,c:f.c,t:f.t,d:dateInMonth(CUR,f.dia)});saveMes(CUR,mes)}}
   closeSheet();ensureAuto();toast("Fixo salvo.");render();
@@ -911,15 +1011,15 @@ document.addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b||b.tagName==="INPUT")return;const a=b.dataset.a,v=b.dataset.v;
   if(a==="tab"){S.tab=v;S.sub=null;try{location.hash=v}catch(x){}render();$("main").scrollTop=0}
   else if(a==="mes"){S.month=addM(S.month,+v);render()}
-  else if(a==="set"){F[b.dataset.k]=F[b.dataset.k]===v&&b.dataset.k==="s"?"":v;if(b.dataset.k==="t"){F.g="";F.s="";F.parc=false}if(b.dataset.k==="g")F.s="";if(b.dataset.k==="c")F.fat="";render()}
+  else if(a==="set"){F[b.dataset.k]=F[b.dataset.k]===v&&b.dataset.k==="s"?"":v;if(b.dataset.k==="t"){F.g="";F.s="";F.parc=false;F.moreG=false;F.moreS=false}if(b.dataset.k==="g"){F.s="";F.moreS=false}if(b.dataset.k==="c")F.fat="";render()}
   else if(a==="lancar")doLancar();
-  else if(a==="edit"){const it=findItem(b.dataset.m,b.dataset.id);if(it)openSheet("item",{...clone(it),v:numIn(it.v),m:b.dataset.m,m0:b.dataset.m,prox:false})}
+  else if(a==="edit"){const it=findItem(b.dataset.m,b.dataset.id);if(it)openSheet("item",{...clone(it),v:numIn(it.v),m:b.dataset.m,m0:b.dataset.m,fixoOn:false,fixoFim:"",fixoRec:it.fx?((S.cfg.fixos.find(x=>x.id===it.fx)||{}).rec!==false):true,fixoValFut:false,fixoEnc:false,prox:false})}
   else if(a==="saveItem")saveItem();else if(a==="delItem")delItem(v);
   else if(a==="close")closeSheet();
   else if(a==="sub"){S.sub=v||null;render();$("main").scrollTop=0}
   else if(a==="estr"){S.plano.estr=v;render()}
   else if(a==="shset"){S.sheet.d[b.dataset.k]=v;if(b.dataset.k==="t"){S.sheet.d.g="";S.sheet.d.s=""}renderSheet()}
-  else if(a==="fixo"){const f=S.cfg.fixos.find(x=>x.id===b.dataset.id);openSheet("fixo",f?{...clone(f),v:numIn(f.v),atual:true}:{t:"D",o:"",v:"",dia:"5",g:"",s:"",c:S.cfg.contas[0].id,ini:CUR,fim:"",ativo:true})}
+  else if(a==="fixo"){const f=S.cfg.fixos.find(x=>x.id===b.dataset.id);openSheet("fixo",f?{...clone(f),v:numIn(f.v),atual:true,rec:f.rec!==false}:{rec:true,t:"D",o:"",v:"",dia:"5",g:"",s:"",c:S.cfg.contas[0].id,ini:CUR,fim:"",ativo:true})}
   else if(a==="saveFixo")saveFixo();
   else if(a==="pauseFixo"){const f=S.cfg.fixos.find(x=>x.id===S.sheet.d.id);if(f){f.ativo=f.ativo===false;saveCfg();closeSheet();ensureAuto();toast(f.ativo?"Fixo reativado.":"Fixo pausado: não entra mais nos próximos meses.");render()}}
   else if(a==="delFixo"){S.cfg.fixos=S.cfg.fixos.filter(x=>x.id!==S.sheet.d.id);saveCfg();closeSheet();toast("Fixo excluído. Lançamentos já feitos foram mantidos.");render()}
@@ -933,10 +1033,25 @@ document.addEventListener("click",e=>{
   else if(a==="saveConta")saveConta();else if(a==="delConta")delConta();
   else if(a==="verfat"){S.filt.c=b.dataset.id;S.filt.t="";S.tab="extrato";S.sub=null;render()}
   else if(a==="addg")openSheet("nome",{titulo:"Novo grupo de "+(b.dataset.t==="R"?"receita":"despesa"),nome:"",t:b.dataset.t,g:-1});
-  else if(a==="adds")openSheet("nome",{titulo:"Novo subgrupo em "+grupos(b.dataset.t)[+b.dataset.g].n,nome:"",t:b.dataset.t,g:+b.dataset.g});
+  else if(a==="adds")openSheet("nome",{titulo:"Novos subgrupos em "+grupos(b.dataset.t)[+b.dataset.g].n,nome:"",t:b.dataset.t,g:+b.dataset.g});
+  else if(a==="more"){if(b.dataset.k==="g")F.moreG=!F.moreG;else F.moreS=!F.moreS;render()}
+  else if(a==="editg"){const g=grupos(b.dataset.t)[+b.dataset.g];if(g)openSheet("grp",{t:b.dataset.t,n:g.n,nome:g.n,dest:""})}
+  else if(a==="edits"){const g=grupos(b.dataset.t)[+b.dataset.g];if(g)openSheet("sub",{t:b.dataset.t,g:g.n,s:g.s[+b.dataset.s],nome:g.s[+b.dataset.s]})}
+  else if(a==="saveGrp"){const d=S.sheet.d,n=String(d.nome||"").trim().toUpperCase();if(!n){toast("Informe o nome.");return}
+    if(n===d.n){closeSheet();return}if(renomearGrupo(d.t,d.n,n)!==false){if(F.g===d.n)F.g=n;closeSheet();toast("Grupo renomeado.");render()}}
+  else if(a==="delGrp"){const d=S.sheet.d;const uso=usoDoGrupo(d.t,d.n);
+    if(grupos(d.t).length<2){toast("Mantenha pelo menos um grupo.");return}
+    if(uso&&!d.dest){toast("Escolha o grupo para onde vão os lançamentos.");return}
+    excluirGrupo(d.t,d.n,uso?d.dest:"");if(F.g===d.n){F.g="";F.s=""}closeSheet();toast(uso?"Grupo excluído. Lançamentos movidos para "+d.dest+".":"Grupo excluído.");render()}
+  else if(a==="saveSub"){const d=S.sheet.d,n=String(d.nome||"").trim().toUpperCase();if(!n){toast("Informe o nome.");return}
+    if(n!==d.s){renomearSub(d.t,d.g,d.s,n);if(F.s===d.s)F.s=n}closeSheet();toast("Subgrupo salvo.");render()}
+  else if(a==="delSub"){const d=S.sheet.d;excluirSub(d.t,d.g,d.s);if(F.s===d.s)F.s="";closeSheet();toast("Subgrupo excluído.");render()}
   else if(a==="saveNome"){const d=S.sheet.d,n=String(d.nome||"").trim().toUpperCase();if(!n){toast("Informe o nome.");return}
-    if(d.g<0){if(!grupos(d.t).find(x=>x.n===n))grupos(d.t).push({n,s:[]})}else{const g=grupos(d.t)[d.g];if(!g.s.includes(n))g.s.push(n)}saveCfg();closeSheet();render()}
-  else if(a==="dels"){grupos(b.dataset.t)[+b.dataset.g].s.splice(+b.dataset.s,1);saveCfg();render()}
+    let msg="";
+    if(d.g<0){if(grupos(d.t).find(x=>x.n===n)){toast("Já existe o grupo "+n+".");return}grupos(d.t).push({n,s:[]});msg="Grupo "+n+" criado."}
+    else{const g=grupos(d.t)[d.g];const novos=[...new Set(n.split(/[,;\n]+/).map(x=>x.trim()).filter(Boolean))].filter(x=>!g.s.includes(x));
+      if(!novos.length){toast("Esses subgrupos já existem.");return}g.s.push(...novos);msg=novos.length===1?"Subgrupo "+novos[0]+" adicionado.":novos.length+" subgrupos adicionados."}
+    ordenaCfg(S.cfg);saveCfg();closeSheet();toast(msg);render()}
   else if(a==="xlsAno"){const anos=[...new Set([CUR.slice(0,4),...Object.keys(S.meses).map(m=>m.slice(0,4))])].sort().reverse();const am=S.month.slice(0,4);openSheet("xls",{anos,ano:anos.includes(am)?am:CUR.slice(0,4)})}
   else if(a==="xlsGo"){const ano=S.sheet.d.ano;closeSheet();exportCompleto(ano).catch(e=>{console.error(e);toast("Não foi possível gerar a planilha. Verifique a internet e tente de novo.")})}
   else if(a==="econ"){const e=getMes(b.dataset.m).econ||{};openSheet("econ",{m:b.dataset.m,cx:numIn(e.cx),cb:numIn(e.cb),ou:numIn(e.ou)})}
@@ -951,7 +1066,7 @@ function fromHash(){const h=(location.hash||"").slice(1);if(TABS.some(t=>t[0]===
 window.addEventListener("hashchange",fromHash);
 
 /* ---------- carga ---------- */
-function normCfg(c){c=clone(c);for(const k of ["rec","desp","contas","fixos","dividas"])if(!Array.isArray(c[k]))c[k]=clone(DEF[k]);if(!c.metas||typeof c.metas!=="object")c.metas={};if(!c.contas.length)c.contas=clone(DEF.contas);return c}
+function normCfg(c){c=ordenaCfg(clone(c));for(const k of ["rec","desp","contas","fixos","dividas"])if(!Array.isArray(c[k]))c[k]=clone(DEF[k]);if(!c.metas||typeof c.metas!=="object")c.metas={};if(!c.contas.length)c.contas=clone(DEF.contas);return c}
 let slowT=null;
 function appLogin(){S.login=true;S.cfg=null;S.started="";clearTimeout(slowT);S.slow=false;render()}
 function loginError(msg){S.loginErr=msg;render()}

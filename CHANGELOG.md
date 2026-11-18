@@ -9,6 +9,16 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ## Pessoal
 
+### pessoal-v1.3 — em desenvolvimento (branch dev-local, ainda não publicada)
+- Grupos e subgrupos: renomear e excluir tocando no nome; ao excluir um grupo com lançamentos, escolhe-se o grupo de destino (lançamentos, fixos e meta vão junto). DÍVIDAS e ANTECIPAÇÃO são protegidos.
+- Grupos e subgrupos sempre em ordem alfabética; vários subgrupos de uma vez (separados por vírgula ou um por linha).
+- Tela Lançar: mostra os 6 grupos e 6 subgrupos mais usados (últimos 4 meses) e um botão "⋯ mais" com o restante.
+- Fixos recorrentes (valor igual todo mês) e não recorrentes (valor varia): os não recorrentes entram com a média dos 3 últimos valores confirmados, marcados como "estimado", até o valor real ser informado.
+- Edição de lançamento: marcar como fixo (com término opcional) e como recorrente ou não; em lançamento já fixo, alterar recorrência, usar o valor nos próximos meses ou encerrar o fixo.
+- Compra parcelada: "Valor é o total" vem primeiro e já marcado.
+- Correção: a descrição do lançamento anterior não volta mais ao campo no celular.
+- Teste local (localhost) usa dados separados dos reais.
+
 ### pessoal-v1.2 — 17/11/2026
 - Logo Fine (opção 6): "fin" + cifrão formado pelo "e" e pelo "a".
 - Nome do app: Fine. Ícone na aba do navegador e na tela inicial.

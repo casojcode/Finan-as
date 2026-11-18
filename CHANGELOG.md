@@ -43,6 +43,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 - Início: resumo do mês, comprometido x livre, quadro "Atenção" (metas estouradas, fixos estimados, meses que vão fechar no vermelho), próximos 10 dias de vencimentos e os 5 maiores grupos com "Ver todos".
 - Planejar com sub-abas: Orçamento (gasto por grupo, orçado x realizado, para onde vai, receitas por fonte), Projeção (12 meses, gráfico de 6 meses, quanto sobrou), Economias e Dívidas.
 - Dívidas saiu de Mais; Resumo e Relatórios foram absorvidos por Início e Planejar.
+- Tema escuro por padrão; em Mais › Aparência dá para escolher Escuro, Claro ou Igual ao celular (a escolha fica salva no aparelho).
 
 ## Comercial
 

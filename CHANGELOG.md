@@ -9,6 +9,22 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ## Pessoal
 
+### pessoal-v1.3 — 2026-11-17
+- Grupos e subgrupos: renomear e excluir tocando no nome; ao excluir um grupo com lançamentos, escolhe-se o grupo de destino (lançamentos, fixos e meta vão junto). DÍVIDAS e ANTECIPAÇÃO são protegidos.
+- Grupos e subgrupos sempre em ordem alfabética; vários subgrupos de uma vez (separados por vírgula ou um por linha).
+- Tela Lançar: mostra os 6 grupos e 6 subgrupos mais usados (últimos 4 meses) e um botão "⋯ mais" com o restante.
+- Fixos recorrentes (valor igual todo mês) e não recorrentes (valor varia): os não recorrentes entram com a média dos 3 últimos valores confirmados, marcados como "estimado", até o valor real ser informado.
+- Edição de lançamento: marcar como fixo (com término opcional) e como recorrente ou não; em lançamento já fixo, alterar recorrência, usar o valor nos próximos meses ou encerrar o fixo.
+- Compra parcelada: "Valor é o total" vem primeiro e já marcado.
+- Correção: a descrição do lançamento anterior não volta mais ao campo no celular.
+- Teste local (localhost) usa dados separados dos reais.
+- Dívidas: juros efetivos com 3 casas decimais, ao mês ou ao ano (padrão: financiamento ao ano; empréstimo e consignado ao mês), com a taxa equivalente na outra unidade.
+- Dívidas: preenchidos dois entre parcela (1ª parcela no SAC), nº de parcelas e juros, o terceiro é calculado, em Price e SAC; aviso quando os três não batem.
+- Dívidas: ponto de partida pelo saldo de hoje ou pelos dados do contrato (valor, prazo total e 1ª parcela), com saldo atual e parcelas pagas calculados.
+- Dívidas: encargos mensais opcionais (seguros, taxas), somados ao lançamento sem entrar no cálculo de juros.
+- Dívidas: resumo antes de salvar (total a pagar, juros, encargos, 1ª e última parcela no SAC, quitação).
+- Correção: botões de opção não somem mais em formulários longos.
+
 ### pessoal-v1.2 — 17/11/2026
 - Logo Fine (opção 6): "fin" + cifrão formado pelo "e" e pelo "a".
 - Nome do app: Fine. Ícone na aba do navegador e na tela inicial.
@@ -23,6 +39,11 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 - Telas Lançar, Extrato, Resumo, Relatórios e Mais.
 - Relatórios de planejamento e economias; Dívidas movidas para Mais.
 - Excel completo (formato do modelo) e Excel backup; importação de backup.
+- Nova navegação: Início · Extrato · (+) Lançar · Planejar · Mais. O app continua abrindo em Lançar (botão + central).
+- Início: resumo do mês, comprometido x livre, quadro "Atenção" (metas estouradas, fixos estimados, meses que vão fechar no vermelho), próximos 10 dias de vencimentos e os 5 maiores grupos com "Ver todos".
+- Planejar com sub-abas: Orçamento (gasto por grupo, orçado x realizado, para onde vai, receitas por fonte), Projeção (12 meses, gráfico de 6 meses, quanto sobrou), Economias e Dívidas.
+- Dívidas saiu de Mais; Resumo e Relatórios foram absorvidos por Início e Planejar.
+- Tema escuro por padrão; em Mais › Aparência dá para escolher Escuro, Claro ou Igual ao celular (a escolha fica salva no aparelho).
 
 ## Comercial
 

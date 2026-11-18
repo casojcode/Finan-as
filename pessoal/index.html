@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0F2A24">
+<script>(function(){var t="escuro";try{t=localStorage.getItem("fine-tema")||"escuro"}catch(e){}if(t==="escuro")document.documentElement.dataset.theme="dark";else if(t==="claro")document.documentElement.dataset.theme="light"})();</script>
 <link rel="icon" type="image/png" href="favicon-64.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Fine">
@@ -500,7 +501,7 @@ function vInicio(){
   const {by,names}=gastoGrupos(m);const al=[];
   for(const n of names){const meta=+S.cfg.metas[n]||0;if(meta&&(by[n]||0)>meta)al.push(`<div class="row sp"><span>${esc(n)}</span><span class="pill n">${brl0(by[n]-meta)} acima da meta</span></div>`)}
   for(const i of its.filter(i=>i.est&&!i.virt))al.push(`<button class="it" data-a="edit" data-m="${m}" data-id="${i.id}"><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} <span class="pill w">estimado</span></div><div class="small muted">Toque para informar o valor real</div></div><div class="num">${brl(i.v)}</div></button>`);
-  if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d;if(sd<0)al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`)}}
+  if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d;if(sd<0){al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`);break}}}
   h+=`<div class="card"><h2>Atenção</h2>${al.length?al.join(""):`<div class="small muted">Nada pedindo atenção agora.</div>`}</div>`;
   // próximos vencimentos
   const V=vencimentos();
@@ -579,6 +580,10 @@ function vDividas(){
 }
 
 /* ---------- mais ---------- */
+const TEMAS=[["escuro","Escuro"],["claro","Claro"],["sistema","Igual ao celular"]];
+function temaAtual(){try{return localStorage.getItem("fine-tema")||"escuro"}catch(e){return "escuro"}}
+function aplicaTema(t){try{localStorage.setItem("fine-tema",t)}catch(e){}const r=document.documentElement;
+  if(t==="escuro")r.dataset.theme="dark";else if(t==="claro")r.dataset.theme="light";else delete r.dataset.theme;}
 function vMais(){
   if(S.sub==="cartoes")return back()+vCartoes();
   if(S.sub==="fixos")return back()+vFixos();
@@ -587,6 +592,7 @@ function vMais(){
   if(S.sub==="dividas")return back()+vDividas();
   return `<div class="card list">${[["cartoes","Cartões e contas"],["fixos","Lançamentos fixos"],["metas","Metas por grupo"],["cats","Grupos e subgrupos"]].map(([k,l])=>`<button class="go" data-a="sub" data-v="${k}"><span>${l}</span><span class="muted">›</span></button>`).join("")}
 </div>
+  <div class="card"><h2>Aparência</h2><div class="subtabs">${TEMAS.map(([k,l])=>`<button data-a="tema" data-v="${k}" aria-pressed="${temaAtual()===k}">${l}</button>`).join("")}</div></div>
   <div class="card list"><h2>Exportar e importar</h2>
   <button class="go" data-a="xlsAno"><span><span style="display:block">Excel completo</span><span class="small muted">Planilha do seu modelo: resumo, anual, dívidas e economias de um ano</span></span><span class="muted">.xlsx</span></button>
   <button class="go" data-a="backup"><span><span style="display:block">Excel backup</span><span class="small muted">Todos os dados, para guardar ou restaurar no app</span></span><span class="muted">.xlsx</span></button>
@@ -1132,6 +1138,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Enter"&&e.target.id==="f-v")
 $("sheet").addEventListener("click",e=>{if(e.target===$("sheet"))closeSheet()});
 document.addEventListener("click",e=>{
   const b=e.target.closest("[data-a]");if(!b||b.tagName==="INPUT")return;const a=b.dataset.a,v=b.dataset.v;
+  if(a==="tema"){aplicaTema(v);render();return}
   if(a==="plan"){S.plan=v;render();$("main").scrollTop=0;return}
   if(a==="goplan"){S.tab="planejar";S.plan=v;S.sub=null;try{location.hash="planejar"}catch(x){}render();$("main").scrollTop=0;return}
   if(a==="tab"){S.tab=v;S.sub=null;try{location.hash=v}catch(x){}render();$("main").scrollTop=0}

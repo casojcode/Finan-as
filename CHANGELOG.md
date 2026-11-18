@@ -18,6 +18,12 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 - Compra parcelada: "Valor é o total" vem primeiro e já marcado.
 - Correção: a descrição do lançamento anterior não volta mais ao campo no celular.
 - Teste local (localhost) usa dados separados dos reais.
+- Dívidas: juros efetivos com 3 casas decimais, ao mês ou ao ano (padrão: financiamento ao ano; empréstimo e consignado ao mês), com a taxa equivalente na outra unidade.
+- Dívidas: preenchidos dois entre parcela (1ª parcela no SAC), nº de parcelas e juros, o terceiro é calculado, em Price e SAC; aviso quando os três não batem.
+- Dívidas: ponto de partida pelo saldo de hoje ou pelos dados do contrato (valor, prazo total e 1ª parcela), com saldo atual e parcelas pagas calculados.
+- Dívidas: encargos mensais opcionais (seguros, taxas), somados ao lançamento sem entrar no cálculo de juros.
+- Dívidas: resumo antes de salvar (total a pagar, juros, encargos, 1ª e última parcela no SAC, quitação).
+- Correção: botões de opção não somem mais em formulários longos.
 
 ### pessoal-v1.2 — 17/11/2026
 - Logo Fine (opção 6): "fin" + cifrão formado pelo "e" e pelo "a".

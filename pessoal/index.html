@@ -502,10 +502,10 @@ function vInicio(){
   for(const n of names){const meta=+S.cfg.metas[n]||0;if(meta&&(by[n]||0)>meta)al.push(`<div class="row sp"><span>${esc(n)}</span><span class="pill n">${brl0(by[n]-meta)} acima da meta</span></div>`)}
   for(const i of its.filter(i=>i.est&&!i.virt))al.push(`<button class="it" data-a="edit" data-m="${m}" data-id="${i.id}"><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} <span class="pill w">estimado</span></div><div class="small muted">Toque para informar o valor real</div></div><div class="num">${brl(i.v)}</div></button>`);
   if(m>=CUR){const e=estimativas();for(let k=1;k<=3;k++){const x=addM(CUR,k),t=itemsOf(x),sd=tot(t,"R")+e.r-tot(t,"D")-e.d;if(sd<0){al.push(`<div class="row sp"><span>${mLab(x)} deve fechar no vermelho</span><span class="pill n">${brl0(sd)}</span></div>`);break}}}
-  h+=`<div class="card"><h2>Atenção</h2>${al.length?al.join(""):`<div class="small muted">Nada pedindo atenção agora.</div>`}</div>`;
+  if(al.length)h+=`<div class="card"><h2>Atenção</h2>${al.join("")}</div>`;
   // próximos vencimentos
   const V=vencimentos();
-  h+=`<div class="card"><h2>Próximos 10 dias</h2>${V.length?V.slice(0,8).map(x=>`<div class="vrow"><span class="dt">${dLab(x.d)}</span><span class="grow">${esc(x.n)}${x.est?` <span class="pill w">estimado</span>`:""}</span><span class="num">${brl(x.v)}</span></div>`).join(""):`<div class="small muted">Nenhum vencimento cadastrado nos próximos 10 dias.</div>`}</div>`;
+  if(V.length)h+=`<div class="card"><h2>Próximos 10 dias</h2>${V.slice(0,8).map(x=>`<div class="vrow"><span class="dt">${dLab(x.d)}</span><span class="grow">${esc(x.n)}${x.est?` <span class="pill w">estimado</span>`:""}</span><span class="num">${brl(x.v)}</span></div>`).join("")}</div>`;
   // 5 maiores grupos
   const top=names.filter(n=>by[n]).slice(0,5);
   h+=`<div class="card"><div class="row sp"><h2>Maiores gastos · ${mLab(m)}</h2><span class="small muted">traço = meta</span></div>${top.length?barrasGrupos(m,top,by,false):`<div class="empty">Sem despesas em ${mLab(m)}.</div>`}

@@ -9,7 +9,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 
 ## Pessoal
 
-### pessoal-v1.3 — em desenvolvimento (branch dev-local, ainda não publicada)
+### pessoal-v1.3 — 2026-11-17
 - Grupos e subgrupos: renomear e excluir tocando no nome; ao excluir um grupo com lançamentos, escolhe-se o grupo de destino (lançamentos, fixos e meta vão junto). DÍVIDAS e ANTECIPAÇÃO são protegidos.
 - Grupos e subgrupos sempre em ordem alfabética; vários subgrupos de uma vez (separados por vírgula ou um por linha).
 - Tela Lançar: mostra os 6 grupos e 6 subgrupos mais usados (últimos 4 meses) e um botão "⋯ mais" com o restante.

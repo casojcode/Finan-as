@@ -395,7 +395,7 @@ function usoGrupos(t){const u={};for(let k=0;k<4;k++)for(const i of getMes(addM(
 function itRow(i,m){
   const c=conta(i.c);const sub=[i.g+(i.s?" › "+i.s:""),c?c.n:""].filter(Boolean).join(" · ");
   const tags=(i.pt?`<span class="pill">${i.pn}/${i.pt}</span> `:"")+(i.fx?`<span class="pill">fixo</span> `:"")+(i.est?`<span class="pill w">estimado</span> `:"")+(i.virt?`<span class="pill w">previsto</span> `:"");
-  return `<button class="it" ${i.virt?"disabled":`data-a="edit" data-m="${m}" data-id="${i.id}"`}><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} ${tags}</div><div class="small muted">${esc(sub)}</div></div><div class="num ${i.t==="R"?"pos":""}">${i.t==="R"?"+":""}${brl(i.v)}</div></button>`;
+  return `<button class="it" data-a="edit" data-m="${m}" data-id="${i.id}"${i.virt?` data-virt="${i.fx?"fx":"dv"}" data-x="${i.fx||i.dv}"`:""}><div class="grow"><div class="t1">${esc(i.o||i.s||i.g)} ${tags}</div><div class="small muted">${esc(sub)}</div></div><div class="num ${i.t==="R"?"pos":""}">${i.t==="R"?"+":""}${brl(i.v)}</div></button>`;
 }
 
 function vLogin(){
@@ -835,7 +835,7 @@ function renderSheet(){
   const selS=(t)=>{const g=grupos(t).find(x=>x.n===d.g);const ss=g?g.s.slice():[];if(d.s&&!ss.includes(d.s))ss.push(d.s);return `<label class="fld">Subgrupo<select id="s-s" data-sc="sh" data-k="s">${opt("","—",d.s)}${ss.map(s=>opt(s,s,d.s)).join("")}</select></label>`};
   const selC=(only)=>`<label class="fld">Forma de pagamento<select id="s-c" data-sc="sh" data-k="c">${S.cfg.contas.filter(c=>!only||c.tipo!=="cartao").map(c=>opt(c.id,c.n,d.c)).join("")}</select></label>`;
   if(sh.type==="item"){
-    h=`<h3>Editar lançamento</h3>${sin("s-v","v","Valor",d.v,dec)}${sin("s-o","o","Descrição",d.o)}
+    h=`<h3>Editar lançamento</h3>${d.virt?`<div class="small muted">Lançamento previsto${d.fx?" (fixo)":" (parcela de dívida)"}. Ao salvar, ele fica registrado em ${mLab(d.m0)} com os valores que você informar.</div>`:""}${sin("s-v","v","Valor",d.v,dec)}${sin("s-o","o","Descrição",d.o)}
     <div class="row">${selG(d.t)}${selS(d.t)}</div><div class="row">${sin("s-d","d","Data",d.d,'type="date"')}${sin("s-m","m","Mês / fatura",d.m,'type="month"')}</div>${selC(d.t==="R")}
     ${d.pg?`<label class="chk"><input id="s-prox" type="checkbox" data-sc="sh" data-k="prox" ${d.prox?"checked":""}> Aplicar valor, grupo e descrição às próximas parcelas (${d.pn}/${d.pt})</label>`:""}
     ${blocoFixo(d)}
@@ -962,7 +962,9 @@ function findItem(m,id){return getMes(m).itens.find(i=>i.id===id)}
 function saveItem(){
   const d=S.sheet.d;const v=parseVal(d.v);if(!(v>0)){toast("Informe o valor.");return}
   if(!/^\d{4}-\d{2}$/.test(d.m)||!d.d){toast("Confira a data e o mês.");return}
-  const old=clone(getMes(d.m0));const ix=old.itens.findIndex(i=>i.id===d.id);if(ix<0){closeSheet();return}
+  const old=clone(getMes(d.m0));let ix=old.itens.findIndex(i=>i.id===d.id);
+  if(ix<0&&d.virt){const base=autoFor(d.m0,old).find(x=>(d.fx&&x.fx===d.fx)||(d.dv&&x.dv===d.dv));if(base){base.id=d.id;old.itens.push(base);ix=old.itens.length-1}}
+  if(ix<0){closeSheet();return}
   const it={...old.itens[ix],v:r2(v),o:String(d.o||"").trim(),g:d.g,s:d.s,d:d.d,c:d.c};delete it.est;
   let cfgMudou=false;
   if(!it.fx&&d.fixoOn&&!it.pg&&!it.dv){
@@ -979,7 +981,9 @@ function saveItem(){
   closeSheet();if(cfgMudou)ensureAuto();toast(d.fixoOn&&!d.fx?"Lançamento atualizado e cadastrado como fixo.":"Lançamento atualizado.");render();
 }
 function delItem(mode){
-  const d=S.sheet.d;const it=findItem(d.m0,d.id);if(!it){closeSheet();return}
+  const d=S.sheet.d;
+  if(d.virt){const mes=clone(getMes(d.m0));(mes.skip=mes.skip||[]).push(d.fx||d.dv);saveMes(d.m0,mes);closeSheet();toast("Removido de "+mLab(d.m0)+". Os outros meses continuam.");render();return}
+  const it=findItem(d.m0,d.id);if(!it){closeSheet();return}
   const ms=mode==="2"&&it.pg?Object.keys(S.meses).filter(m=>m>=d.m0):[d.m0];let n=0;
   for(const m of ms){const mes=clone(getMes(m));const before=mes.itens.length;
     mes.itens=mes.itens.filter(x=>!(x.id===it.id||(mode==="2"&&x.pg===it.pg&&x.pn>=it.pn)));
@@ -1239,7 +1243,9 @@ document.addEventListener("click",e=>{
   else if(a==="mes"){S.month=addM(S.month,+v);render()}
   else if(a==="set"){F[b.dataset.k]=F[b.dataset.k]===v&&b.dataset.k==="s"?"":v;if(b.dataset.k==="t"){F.g="";F.s="";F.parc=false;F.moreG=false;F.moreS=false}if(b.dataset.k==="g"){F.s="";F.moreS=false}if(b.dataset.k==="c")F.fat="";render()}
   else if(a==="lancar")doLancar();
-  else if(a==="edit"){const it=findItem(b.dataset.m,b.dataset.id);if(it)openSheet("item",{...clone(it),v:numIn(it.v),m:b.dataset.m,m0:b.dataset.m,fixoOn:false,fixoFim:"",fixoRec:it.fx?((S.cfg.fixos.find(x=>x.id===it.fx)||{}).rec!==false):true,fixoValFut:false,fixoEnc:false,prox:false})}
+  else if(a==="edit"){let it=findItem(b.dataset.m,b.dataset.id),virt=false;
+    if(!it&&b.dataset.virt){it=autoFor(b.dataset.m,getMes(b.dataset.m)).find(x=>x[b.dataset.virt]===b.dataset.x);virt=!!it}
+    if(it)openSheet("item",{...clone(it),virt,v:numIn(it.v),m:b.dataset.m,m0:b.dataset.m,fixoOn:false,fixoFim:"",fixoRec:it.fx?((S.cfg.fixos.find(x=>x.id===it.fx)||{}).rec!==false):true,fixoValFut:false,fixoEnc:false,prox:false})}
   else if(a==="saveItem")saveItem();else if(a==="delItem")delItem(v);
   else if(a==="close")closeSheet();
   else if(a==="sub"){S.sub=v||null;render();$("main").scrollTop=0}

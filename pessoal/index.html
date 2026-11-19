@@ -60,7 +60,10 @@ nav button.plus span{width:52px;height:52px;margin-top:-22px;border-radius:50%;b
 nav button.plus[aria-current="page"] span{outline:2px solid var(--accent);outline-offset:2px}
 nav{overflow:visible;position:relative;z-index:5;padding-bottom:env(safe-area-inset-bottom)}
 #app{padding-top:env(safe-area-inset-top);box-sizing:border-box}
-@supports (height:100dvh){#app{height:100dvh}}
+/* a tela não rola inteira: só o conteúdo do meio; topo e barra de baixo ficam fixos */
+html,body{overflow:hidden;overscroll-behavior:none}
+#app{position:fixed;top:0;bottom:0;left:0;right:0;width:100%;height:auto;margin:0 auto}
+main{min-height:0;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
 input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;text-align:left}
 input[type=date]::-webkit-date-and-time-value{text-align:left}
 main>*{flex-shrink:0}

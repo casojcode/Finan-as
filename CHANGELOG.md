@@ -10,6 +10,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 ## Pessoal
 
 ### pessoal-v1.4 — 2026-11-18
+- Funciona sem internet: o app fica guardado no aparelho (service worker), abre offline com os últimos dados e envia os lançamentos quando a conexão voltar.
 - iPhone: botão + não fica mais cortado, a barra de baixo respeita a área do gesto de início e o campo de data não passa da borda.
 - Planejar › Economias reformulado: cadastro de investimentos (tipo, instituição, meta, rentabilidade esperada em % do CDI ou % a.a., liquidez/vencimento).
 - Atualização mensal de aportes, resgates e saldo de cada investimento; o app calcula o rendimento do mês e do ano e compara com o esperado.

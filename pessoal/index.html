@@ -365,7 +365,7 @@ function render(){
   let h="";
   if(!S.cfg){h=`<div class="empty">${S.slow?"Ainda não foi possível acessar os dados. Verifique a conexão; a página continua tentando.":"Carregando seus dados…"}</div>`}
   else{
-    if(S.slow)h+=`<div class="banner">Sem conexão com o servidor no momento. Você pode continuar lançando: tudo é enviado quando a internet voltar.</div>`;
+    if(S.slow)h+=`<div class="banner">${navigator.onLine===false?"Sem internet.":"Sem conexão com o servidor no momento."} Você pode continuar lançando: tudo é enviado quando a internet voltar.</div>`;
     h+=({inicio:vInicio,lancar:vLancar,extrato:vExtrato,planejar:vPlanejar,mais:vMais}[S.tab])();
   }
   $("main").innerHTML=h;
@@ -1317,7 +1317,7 @@ function appStart(db,user){
   if(S.started===user.uid)return;
   S.started=user.uid;S.login=false;S.loginErr="";S.user=user.email||"";S.db=db;S.cfg=null;S.meses={};S.ready=false;S.got={cfg:false,meses:false};
   render();
-  slowT=setTimeout(()=>{if(!S.got.cfg||!S.got.meses){S.slow=true;if(!S.cfg)S.cfg=clone(DEF);render()}},10000);
+  slowT=setTimeout(()=>{if(!S.got.cfg||!S.got.meses){S.slow=true;if(!S.cfg)S.cfg=clone(DEF);render()}},navigator.onLine===false?1500:10000);
   const fail=e=>{clearTimeout(slowT);S.slow=false;if(e&&e.code==="permission-denied"){S.err="Sua conta não tem permissão para ler estes dados. Confira as regras do Firestore."}else if(!S.cfg)S.cfg=clone(DEF);render()};
   db.doc("cfg/main").onSnapshot(snap=>{
     S.cfg=snap.exists?normCfg(snap.data()):(S.cfg||clone(DEF));
@@ -1333,8 +1333,10 @@ function appStart(db,user){
   },fail);
 }
 function checkReady(){if(S.got.cfg&&S.got.meses){clearTimeout(slowT);S.slow=false;if(!S.ready){S.ready=true;migraEcon();ensureAuto()}}}
+addEventListener("online",()=>render());addEventListener("offline",()=>render());
 fromHash();render();
 </script>
+<script>if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(()=>{});</script>
 <script type="module">
 const V="12.18.0",B="https://www.gstatic.com/firebasejs/"+V+"/";
 const firebaseConfig={

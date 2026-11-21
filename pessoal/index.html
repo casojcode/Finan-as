@@ -369,6 +369,7 @@ function render(){
   let h="";
   if(!S.cfg){h=`<div class="empty">${S.slow?"Ainda não foi possível acessar os dados. Verifique a conexão; a página continua tentando.":"Carregando seus dados…"}</div>`}
   else{
+    if(S.demo)h+=`<div class="banner row sp"><span>Modo demonstração: dados de exemplo. Nada é salvo; ao sair, tudo volta ao início.</span><button class="btn" data-a="logout">Sair</button></div>`;
     if(S.slow)h+=`<div class="banner">${navigator.onLine===false?"Sem internet.":"Sem conexão com o servidor no momento."} Você pode continuar lançando: tudo é enviado quando a internet voltar.</div>`;
     h+=({inicio:vInicio,lancar:vLancar,extrato:vExtrato,planejar:vPlanejar,mais:vMais}[S.tab])();
   }
@@ -402,6 +403,8 @@ function vLogin(){
   return `<div class="card" style="margin-top:24px"><h2>Bem-vindo</h2>
   <div>Entre com a sua conta Google para ver e lançar seus gastos. Os dados ficam no seu projeto Firebase e só a sua conta tem acesso a eles.</div>
   <button class="btn pri big" data-a="login">Entrar com Google</button>
+  <button class="btn big" data-a="demo">Experimentar sem conta</button>
+  <div class="small muted">A demonstração abre com dados de exemplo para você testar tudo. Nada é salvo: ao sair, tudo volta ao início.</div>
   ${S.loginErr?`<div class="banner">${esc(S.loginErr)}</div>`:""}</div>`;
 }
 function vLancar(){
@@ -1313,19 +1316,78 @@ document.addEventListener("click",e=>{
   else if(a==="import")$("imp").click();
   else if(a==="doImport")doImport();
   else if(a==="login"){S.loginErr="";if(window.fbLogin)window.fbLogin();else toast("Ainda carregando. Aguarde um instante.")}
-  else if(a==="logout"){if(window.fbLogout)window.fbLogout()}
+  else if(a==="logout"){if(S.demo){location.reload();return}if(window.fbLogout)window.fbLogout()}
+  else if(a==="demo")demoStart();
 });
 function fromHash(){const h=(location.hash||"").slice(1);if(TABS.some(t=>t[0]===h)&&h!==S.tab){S.tab=h;S.sub=null;render()}}
 window.addEventListener("hashchange",fromHash);
 
+/* ---------- demonstração (sem conta, dados de exemplo, nada é salvo) ---------- */
+function memDb(seed){
+  const st={cfg:seed.cfg,meses:seed.meses},dl=[],cl=[],meta={fromCache:false,hasPendingWrites:false};
+  const snapCfg=()=>({exists:!!st.cfg,data:()=>clone(st.cfg),metadata:meta});
+  const snapMes=()=>({docs:Object.keys(st.meses).map(id=>({id,data:()=>clone(st.meses[id])})),metadata:meta});
+  return {
+    doc:p=>({set:d=>{d=clone(d);if(p==="cfg/main"){st.cfg=d;setTimeout(()=>dl.forEach(n=>n(snapCfg())))}else{st.meses[p.split("/")[1]]=d;setTimeout(()=>cl.forEach(n=>n(snapMes())))}return Promise.resolve()},
+             onSnapshot:n=>{dl.push(n);setTimeout(()=>n(snapCfg()))}}),
+    collection:()=>({onSnapshot:n=>{cl.push(n);setTimeout(()=>n(snapMes()))}})
+  };
+}
+function demoSeed(){
+  let sd=7;const rnd=()=>{sd=(sd*16807)%2147483647;return sd/2147483647};const val=(a,b)=>r2(a+(b-a)*rnd());
+  const cfg=clone(DEF);
+  cfg.desp.find(g=>g.n==="HABITAÇÃO").s.push("ALUGUEL");cfg.desp.find(g=>g.n==="LAZER").s.push("STREAMING","RESTAURANTE");cfg.desp.find(g=>g.n==="SAÚDE").s.push("FARMÁCIA","ACADEMIA");
+  cfg.contas=[{id:"pix",n:"Pix / Débito",tipo:"conta"},{id:"din",n:"Dinheiro",tipo:"conta"},{id:"cartao1",n:"Cartão Roxo",tipo:"cartao",fech:3,venc:10}];
+  cfg.metas={"ALIMENTAÇÃO":1500,"LAZER":450,"TRANSPORTE":600,"SAÚDE":300};
+  const ini=addM(CUR,-4),card=cfg.contas[2];
+  cfg.fixos=[
+    {id:"fx-sal",t:"R",g:"SALÁRIO",s:"",o:"Salário",v:7400,c:"pix",dia:5,ini},
+    {id:"fx-alu",t:"D",g:"HABITAÇÃO",s:"ALUGUEL",o:"Aluguel",v:1800,c:"pix",dia:10,ini},
+    {id:"fx-int",t:"D",g:"HABITAÇÃO",s:"INTERNET",o:"Internet",v:119.9,c:"pix",dia:15,ini},
+    {id:"fx-luz",t:"D",g:"HABITAÇÃO",s:"LUZ",o:"Conta de luz",v:210,c:"pix",dia:12,ini,rec:false},
+    {id:"fx-str",t:"D",g:"LAZER",s:"STREAMING",o:"Streaming",v:55.9,c:"cartao1",dia:8,ini},
+    {id:"fx-aca",t:"D",g:"SAÚDE",s:"ACADEMIA",o:"Academia",v:99.9,c:"cartao1",dia:3,ini}];
+  const price=(S0,i,n)=>r2(S0*i/(1-Math.pow(1+i,-n)));
+  const iF=a2m(0.139),iC=0.018,prox=addM(CUR,-3);
+  cfg.dividas=[
+    {id:"dv-car",nome:"Financiamento do carro",tipo:"financiamento",sis:"price",modo:"saldo",saldo:42000,n:36,parcela:price(42000,iF,36),p1:0,taxa:iF,un:"a",taxaInf:false,semTaxaFim:false,calc:"parcela",enc:0,ref:addM(prox,-1),auto0:prox,dia:20,c:"pix",folha:false,extras:{}},
+    {id:"dv-con",nome:"Consignado",tipo:"consignado",sis:"price",modo:"saldo",saldo:12000,n:48,parcela:price(12000,iC,48),p1:0,taxa:iC,un:"m",taxaInf:false,semTaxaFim:false,calc:"parcela",enc:0,ref:addM(prox,-1),auto0:prox,dia:5,c:"pix",folha:true,extras:{}}];
+  cfg.cdi=14.9;
+  cfg.inv=[
+    {id:"inv-cdb",n:"CDB Banco Exemplo",tipo:"cdb",c:"pix",meta:0,rm:"cdi",rv:110,liq:"venc",venc:dateInMonth(addM(CUR,1),15)},
+    {id:"inv-res",n:"Reserva de emergência",tipo:"caixinha",c:"pix",meta:20000,rm:"cdi",rv:100,liq:"diaria",venc:""}];
+  const meses={};const M=m=>meses[m]||(meses[m]=emptyMes());
+  const add=(d,g,s,o,v,c,extra)=>{const k=c==="cartao1"?fatMonth(card,d):ymOf(d);if(k>CUR&&!(extra&&extra.pt))return;M(k).itens.push({id:uid(),d,t:"D",g,s,o,v,c,ts:Date.now(),...(extra||{})})};
+  const hoje=todayStr();
+  for(let k=4;k>=0;k--){const m=addM(CUR,-k);
+    const dias=[3,7,12,16,21,26];
+    for(const dd of dias){const d=dateInMonth(m,dd);if(d>hoje)continue;
+      add(d,"ALIMENTAÇÃO","SUPERMERCADO","Supermercado",val(160,380),"cartao1");
+      if(rnd()<.8)add(d,"ALIMENTAÇÃO","ALMOÇO","Almoço",val(28,48),"pix");
+      if(rnd()<.35)add(d,"TRANSPORTE","COMBUSTÍVEL","Posto",val(150,240),"cartao1");
+      if(rnd()<.3)add(d,"LAZER","RESTAURANTE","Jantar fora",val(80,190),"cartao1");
+      if(rnd()<.15)add(d,"SAÚDE","FARMÁCIA","Farmácia",val(25,90),"pix")}
+    if(k>0){M(m).pagas={cartao1:true}}}
+  // compra parcelada no cartão: geladeira 10x, começou há 2 meses
+  const dg=dateInMonth(addM(CUR,-2),18),pg=uid(),f0=fatMonth(card,dg);
+  for(let p=1;p<=10;p++){const m=addM(f0,p-1);M(m).itens.push({id:uid(),d:p===1?dg:dateInMonth(addM(ymOf(dg),p-1),18),t:"D",g:"OUTROS",s:"",o:"Geladeira",v:329,c:"cartao1",pn:p,pt:10,pg,ts:Date.now()+p})}
+  // investimentos e cashback
+  const a=addM(CUR,-3),b=addM(CUR,-2),c=addM(CUR,-1);
+  M(a).inv={"inv-res":{sd:8000,ini:true},"inv-cdb":{sd:5000,ini:true}};
+  M(b).inv={"inv-res":{ap:500,sd:8598},"inv-cdb":{sd:5068}};
+  M(c).inv={"inv-res":{ap:500,sd:9203},"inv-cdb":{sd:5137}};M(c).econ={cb:23.5};
+  M(CUR).inv={"inv-res":{ap:500}};
+  return {cfg,meses};
+}
+function demoStart(){S.demo=true;S.tab="inicio";appStart(memDb(demoSeed()),{uid:"demo",email:"Demonstração (dados de exemplo)"})}
 /* ---------- carga ---------- */
 function normCfg(c){c=ordenaCfg(clone(c));for(const k of ["rec","desp","contas","fixos","dividas"])if(!Array.isArray(c[k]))c[k]=clone(DEF[k]);if(!c.metas||typeof c.metas!=="object")c.metas={};if(!c.contas.length)c.contas=clone(DEF.contas);return c}
 let slowT=null;
-function appLogin(){S.login=true;S.cfg=null;S.started="";clearTimeout(slowT);S.slow=false;render()}
+function appLogin(){if(S.demo)return;S.login=true;S.cfg=null;S.started="";clearTimeout(slowT);S.slow=false;render()}
 function loginError(msg){S.loginErr=msg;render()}
 function loadError(){S.err="O app não conseguiu carregar. Verifique a internet e tente de novo.";render()}
 function appStart(db,user){
-  if(S.started===user.uid)return;
+  if(S.started===user.uid||(S.demo&&user.uid!=="demo"))return;
   S.started=user.uid;S.login=false;S.loginErr="";S.user=user.email||"";S.db=db;S.cfg=null;S.meses={};S.ready=false;S.got={cfg:false,meses:false};
   render();
   slowT=setTimeout(()=>{if(!S.got.cfg||!S.got.meses){S.slow=true;if(!S.cfg)S.cfg=clone(DEF);render()}},navigator.onLine===false?1500:10000);

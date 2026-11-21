@@ -10,6 +10,7 @@ Numeração: `MAIOR.MENOR`. Muda o MENOR em melhorias e correções; muda o MAIO
 ## Pessoal
 
 ### pessoal-v1.4 — 2026-11-18
+- Modo demonstração: na tela de entrada, "Experimentar sem conta" abre o app com dados de exemplo (fixos, cartão, parcelas, dívidas e investimentos) para testar tudo; nada é salvo.
 - Login: o Google sempre pergunta qual conta usar, permitindo entrar com outra conta depois de sair.
 - Extrato: lançamentos previstos dos meses futuros (receitas e despesas fixas, parcelas de dívidas) podem ser abertos e editados; ao salvar, ficam registrados naquele mês. Excluir um previsto tira só daquele mês.
 - Topo e barra de baixo ficam fixos; só o conteúdo do meio rola (corrige a barra sumindo ao rolar no celular).

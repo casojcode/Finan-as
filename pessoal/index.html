@@ -1377,7 +1377,7 @@ try{
       onSnapshot:(n,e)=>F.onSnapshot(r,{includeMetadataChanges:true},s=>n({docs:s.docs.map(d=>({id:d.id,data:()=>d.data()})),metadata:meta(s.metadata)}),e)}}
   });
   window.fbLogin=async()=>{
-    const pv=new A.GoogleAuthProvider();
+    const pv=new A.GoogleAuthProvider();pv.setCustomParameters({prompt:"select_account"});// sempre pergunta qual conta usar
     try{await A.signInWithPopup(auth,pv)}
     catch(e){
       const c=e&&e.code||"";
